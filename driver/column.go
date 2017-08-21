@@ -13,7 +13,6 @@ type Column struct {
 	LastSavedPos int    `json:"last_save_pos"`
 	table        *Table
 	values       []Value
-	//unique		 map[Value][]int
 }
 
 func (c *Column) GetFileName() string {
@@ -50,7 +49,7 @@ func (c *Column) GetValue(pos int) (Value, bool) {
 	return nil, false
 }
 
-func (c *Column) Load() (error) {
+func (c *Column) Load() error {
 	c.values = []Value{}
 
 	f, err := os.OpenFile(c.GetFileName(), os.O_CREATE|os.O_RDONLY, 0777)
@@ -73,14 +72,14 @@ func (c *Column) Load() (error) {
 	return nil
 }
 
-func (c *Column) Save() (error) {
+func (c *Column) Save() error {
 	f, err := os.OpenFile(c.GetFileName(), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	if _, err := f.Seek(int64(c.LastSavedPos) * int64(c.Length), 0); err != nil {
+	if _, err := f.Seek(int64(c.LastSavedPos)*int64(c.Length), 0); err != nil {
 		return err
 	}
 

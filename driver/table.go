@@ -109,40 +109,46 @@ func (t *Table) GetFileName() string {
 	return "/Users/andrey/Go/src/ddb/data/t" + t.Name
 }
 
-func (t *Table) saveTableInfo() {
-
+func (t *Table) saveTableInfo() (err error) {
 	f, err := os.OpenFile(t.GetFileName(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
 	if err != nil {
-		panic(err)
-		log.Fatalln(err)
+		return err
 	}
 	defer f.Close()
 
-	if b, err := json.Marshal(t); err != nil {
-		log.Fatal(err)
-	} else {
-		f.Write(b)
+	b, err := json.Marshal(t);
+	if err != nil {
+		return err
 	}
 
-	if err := f.Sync(); err != nil {
-		panic(err)
-		log.Fatal(err)
+	_, err = f.Write(b)
+	if err != nil {
+		return err
 	}
+	return f.Sync()
 }
 
-func (t *Table) saveColumns() {
+func (t *Table) saveColumns() (err error) {
 	for i := range t.Columns {
-		t.Columns[i].Save()
+		if err = t.Columns[i].Save(); err != nil {
+			return err
+		}
 	}
+	return err
 }
 
-func (t *Table) Save() {
-	t.saveColumns()
-	t.saveTableInfo()
+func (t *Table) Save() (err error) {
+	if err = t.saveColumns(); err != nil {
+		return err
+	}
+	if err = t.saveTableInfo(); err != nil {
+		return err
+	}
+	return err
 }
 
 func (t *Table) loadTableInfo() (err error) {
-	f, err := os.OpenFile(t.GetFileName(), os.O_CREATE|os.O_RDONLY, 0777)
+	f, err := os.OpenFile(t.GetFileName(), os.O_RDONLY, 0777)
 	if err != nil {
 		return err
 	}
@@ -175,15 +181,15 @@ func (t *Table) loadColumns() error {
 	return nil
 }
 
-func (t *Table) Load() error {
-	if err := t.loadTableInfo(); err != nil {
+func (t *Table) Load() (err error) {
+	if err = t.loadTableInfo(); err != nil {
 		return err
 	}
 
-	if err := t.loadColumns(); err != nil {
+	if err = t.loadColumns(); err != nil {
 		return err
 	}
-	return nil
+	return err
 }
 
 func (t *Table) ColumnByName(name string) *Column {
