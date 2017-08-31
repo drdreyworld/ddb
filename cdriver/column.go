@@ -1,4 +1,4 @@
-package driver
+package cdriver
 
 import (
 	"io"
@@ -12,7 +12,7 @@ type Column struct {
 	Type         string `json:"type"`
 	LastSavedPos int    `json:"last_save_pos"`
 	table        *Table
-	values       []Value
+	bytes        []byte
 }
 
 func (c *Column) GetFileName() string {
@@ -21,36 +21,38 @@ func (c *Column) GetFileName() string {
 
 func (c *Column) Init(t *Table) {
 	c.table = t
-	c.values = []Value{}
 }
 
-func (c *Column) SetValue(pos int, val interface{}) {
-	length := len(c.values)
+func (c *Column) SetValue(index int, val interface{}) {
 	value, err := ValueToBytes(val, c.Length)
-
 	if err != nil {
 		panic(err)
 	}
+	c.SetBytes(index, value)
+}
 
-	if length == pos {
-		c.values = append(c.values, value)
-	} else if length > pos {
-		c.values[pos] = value
-	} else {
-		c.values = append(c.values, make([]Value, pos-length)...)
-		c.values = append(c.values, value)
+func (c *Column) SetBytes(index int, value []byte) {
+	count := len(c.bytes) / c.Length
+
+	if index >= count {
+		c.bytes = append(c.bytes, make([]byte, (count-index+1)*c.Length)...)
+	}
+
+	for i := 0; i < c.Length; i++ {
+		c.bytes[index*c.Length+i] = value[i]
 	}
 }
 
-func (c *Column) GetValue(pos int) (Value, bool) {
-	if pos <= len(c.values) {
-		return c.values[pos], true
+func (c *Column) GetBytes(index int) ([]byte, bool) {
+	count := len(c.bytes) / c.Length
+	if index > -1 && index < count {
+		return c.bytes[index*c.Length : (index+1)*c.Length], true
 	}
 	return nil, false
 }
 
 func (c *Column) Load() error {
-	c.values = []Value{}
+	c.bytes = []byte{}
 
 	f, err := os.OpenFile(c.GetFileName(), os.O_CREATE|os.O_RDONLY, 0777)
 	if err != nil {
@@ -58,15 +60,16 @@ func (c *Column) Load() error {
 	}
 	defer f.Close()
 
-	for r := 0; ; r++ {
-		b := make([]byte, c.Length)
-		if _, err := f.Read(b); err != nil {
+	bb := make([]byte, c.Length*1000)
+
+	for {
+		if _, err := f.Read(bb); err != nil {
 			if err == io.EOF {
 				break
 			}
 			return err
 		} else {
-			c.values = append(c.values, b)
+			c.bytes = append(c.bytes, bb...)
 		}
 	}
 	return nil
@@ -83,17 +86,9 @@ func (c *Column) Save() error {
 		return err
 	}
 
-	for _, value := range c.values {
-		if _, err := f.Write(value); err != nil {
-			return err
-		}
-	}
-
-	if err := f.Sync(); err != nil {
+	if _, err := f.Write(c.bytes); err != nil {
 		return err
 	}
 
-	c.LastSavedPos = len(c.values)
-
-	return nil
+	return f.Sync()
 }

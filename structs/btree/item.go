@@ -5,7 +5,7 @@ type tItem struct {
 	right  *tItem
 	parent *tItem
 	data   *Data
-	tree   *bTree
+	tree   *BTree
 }
 
 type Data struct {
@@ -25,16 +25,20 @@ func (i *tItem) GetValue() interface{} {
 	return i.data.value
 }
 
+func (i *tItem) SetValue(value interface{}) {
+	i.data.value = value
+}
+
 func (i *tItem) IsRoot() bool {
 	return i.parent == nil
 }
 
 func (i *tItem) isLeft() bool {
-	return !i.IsRoot() && i.parent.left.GetKey() == i.GetKey()
+	return !i.IsRoot() && i.parent.left != nil && i.parent.left.GetKey() == i.GetKey()
 }
 
 func (i *tItem) isRight() bool {
-	return !i.IsRoot() && i.parent.right.GetKey() == i.GetKey()
+	return !i.IsRoot() && i.parent.right != nil && i.parent.right.GetKey() == i.GetKey()
 }
 
 func (i *tItem) Left() *tItem {

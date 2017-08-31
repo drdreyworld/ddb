@@ -1,4 +1,4 @@
-package driver
+package cdriver
 
 type Condition struct {
 	CompareA interface{}

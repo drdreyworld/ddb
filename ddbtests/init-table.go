@@ -1,7 +1,7 @@
 package ddbtests
 
 import (
-	"ddb/driver"
+	"ddb/cdriver"
 	"math/rand"
 )
 
@@ -14,14 +14,13 @@ type u struct {
 func InitTable() {
 	FNames := []string{"Вася", "Петя", "Саша", "Никита", "Илья", "Олег", "Семен", "Степан", "Иван"}
 	LNames := []string{"Иванов", "Петров", "Сидоров", "Проскурин", "Бочаров", "Ефименко", "Дмитриев", "Павленко", "Ивановский", "Петровский", "Сидоровский"}
-	Columns := []driver.Column{
-		driver.Column{Name: "FName", Title: "First name", Length: 50, Type: "string"},
-		driver.Column{Name: "LName", Title: "Last name", Length: 50, Type: "string"},
-		driver.Column{Name: "Id", Title: "User ID", Length: 64 / 8, Type: "int64"},
+	Columns := []cdriver.Column{
+		{Name: "FName", Title: "First name", Length: 50, Type: "string"},
+		{Name: "LName", Title: "Last name", Length: 50, Type: "string"},
+		{Name: "Id", Title: "User ID", Length: 64 / 8, Type: "int64"},
 	}
 
-
-	table, err := driver.CreateTable("Users", Columns)
+	table, err := cdriver.CreateTable("Users", Columns)
 	if err != nil {
 		panic(err)
 	}

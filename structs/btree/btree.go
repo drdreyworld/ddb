@@ -1,23 +1,19 @@
 package btree
 
-type bTree struct {
+type BTree struct {
 	root *tItem
 }
 
-func NewTree() *bTree {
-	return &bTree{}
-}
-
-func (t *bTree) Create(data Data) *tItem {
+func (t *BTree) CreateItem(data Data) *tItem {
 	return &tItem{
 		data: &data,
 		tree: t,
 	}
 }
 
-func (t *bTree) Add(data Data) bool {
+func (t *BTree) Add(data Data) bool {
 	if t.root == nil {
-		t.root = t.Create(data)
+		t.root = t.CreateItem(data)
 		return true
 	}
 	p := t.root
@@ -30,7 +26,7 @@ func (t *bTree) Add(data Data) bool {
 
 		if p.GetKey() > data.key {
 			if p.left == nil {
-				p.left = t.Create(data)
+				p.left = t.CreateItem(data)
 				p.left.parent = p
 				return true
 			}
@@ -39,7 +35,7 @@ func (t *bTree) Add(data Data) bool {
 		}
 		if p.GetKey() < data.key {
 			if p.right == nil {
-				p.right = t.Create(data)
+				p.right = t.CreateItem(data)
 				p.right.parent = p
 				return true
 			}
@@ -50,7 +46,7 @@ func (t *bTree) Add(data Data) bool {
 	return false
 }
 
-func (t *bTree) Find(key int) *tItem {
+func (t *BTree) Find(key int) *tItem {
 	if t.root == nil {
 		return nil
 	}
@@ -70,7 +66,7 @@ func (t *bTree) Find(key int) *tItem {
 	return nil
 }
 
-func (t *bTree) Delete(key int) bool {
+func (t *BTree) Delete(key int) bool {
 	p := t.Find(key)
 
 	if p == nil {
@@ -168,7 +164,7 @@ func (t *bTree) Delete(key int) bool {
 
 }
 
-func (t *bTree) Count() int {
+func (t *BTree) Count() int {
 	if t.root == nil {
 		return 0
 	}
@@ -176,6 +172,6 @@ func (t *bTree) Count() int {
 	return t.root.Count()
 }
 
-func (t *bTree) Root() *tItem {
+func (t *BTree) Root() *tItem {
 	return t.root
 }

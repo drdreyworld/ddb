@@ -1,0 +1,35 @@
+{
+    "name" : "Users",
+    "columns" :
+    [
+        {
+            "name"   : "FName",
+            "title"  : "First name",
+            "length" : 50,
+            "type"   : "string"
+        },
+        {
+            "name"   : "LName",
+            "title"  : "Last name",
+            "length" : 50,
+            "type"   : "string"
+        },
+        {
+            "name"   : "Id",
+            "title"  : "User ID",
+            "length" : 8,
+            "type"   : "int64"
+        }
+    ],
+    "indexes" : [
+        {
+            "name"    : "UserName",
+            "columns" : ["FName", "LName"]
+        },
+        {
+            "name"    : "UserId",
+            "columns" : ["Id"]
+        }
+    ],
+    "max_id":0
+}
