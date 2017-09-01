@@ -19,6 +19,7 @@ type treeItem struct {
 }
 
 func (i *Index) Init(t *Table) {
+	i.table = t
 	i.crc32q = crc32.MakeTable(0xD5828281)
 }
 
@@ -59,10 +60,8 @@ func (i *Index) Find(row map[string][]byte) (res *DbResult) {
 	res = &DbResult{}
 	res.Init(i.table)
 
-	crc32q := crc32.MakeTable(0xD5828281)
-
 	for _, column := range i.Columns {
-		key := crc32.Checksum(row[column], crc32q)
+		key := i.GetCRC(row[column])
 
 		if item == nil {
 			tree = &i.tree

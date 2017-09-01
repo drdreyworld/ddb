@@ -42,7 +42,7 @@ func (c *Columns) GetRowsCount() int {
 func (c *Columns) GetRowByIndex(index int) map[string][]byte {
 	res := map[string][]byte{}
 	for i := 0; i < len(*c); i++ {
-		res[(*c)[i].Name], _ = (*c)[i].GetBytes(index)
+		res[(*c)[i].Name] = (*c)[i].GetBytes(index)
 	}
 	return res
 }

@@ -31,10 +31,12 @@ func init() {
 }
 
 func CreateTable() {
+	t = time.Now()
 	table, err = cdriver.OpenTable("Users")
 	panicIfError(err)
 
-	fmt.Println("Table opened:", table.Name)
+	fmt.Println("Table opened:", table.Name, time.Now().Sub(t))
+	fmt.Println("Rows count:", table.Columns.GetRowsCount())
 
 	t = time.Now()
 	for i := 0; i < 1000000; i++ {
@@ -57,8 +59,8 @@ func OpenTable() {
 }
 
 func main() {
-	//CreateTable()
-	OpenTable()
+	CreateTable()
+	//OpenTable()
 
 	for i := 0; i < 10; i++ {
 		t = time.Now()
@@ -70,9 +72,18 @@ func main() {
 	}
 
 	t = time.Now()
-	r, _ := table.FindByIndex([]cdriver.FindFieldCond{
-		{Field: "Id", Value: 156},
-	}, 10)
-	fmt.Println("Find rows by column Id", time.Now().Sub(t), "results count: ", r.GetRowsCount(), "result:", r.FetchRow())
+	r, err := table.FindByIndex([]cdriver.FindFieldCond{{Field: "Id", Value: 12}}, 10)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Println("Find rows by column Id", time.Now().Sub(t), "results count: ", r.GetRowsCount())
+		row := u{}
+		if err := r.FetchRow(&row); err != nil {
+			fmt.Println("Fetch row Error:", err)
+		} else {
+			fmt.Println("Fetch row:", row)
+		}
 
+
+	}
 }

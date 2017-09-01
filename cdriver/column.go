@@ -1,7 +1,6 @@
 package cdriver
 
 import (
-	"io"
 	"os"
 )
 
@@ -38,17 +37,11 @@ func (c *Column) SetBytes(index int, value []byte) {
 		c.bytes = append(c.bytes, make([]byte, (count-index+1)*c.Length)...)
 	}
 
-	for i := 0; i < c.Length; i++ {
-		c.bytes[index*c.Length+i] = value[i]
-	}
+	copy(c.bytes[index*c.Length:], value)
 }
 
-func (c *Column) GetBytes(index int) ([]byte, bool) {
-	count := len(c.bytes) / c.Length
-	if index > -1 && index < count {
-		return c.bytes[index*c.Length : (index+1)*c.Length], true
-	}
-	return nil, false
+func (c *Column) GetBytes(index int) ([]byte) {
+	return c.bytes[index*c.Length : (index+1)*c.Length]
 }
 
 func (c *Column) Load() error {
@@ -60,17 +53,14 @@ func (c *Column) Load() error {
 	}
 	defer f.Close()
 
-	bb := make([]byte, c.Length*1000)
+	s, err := f.Stat()
+	if err != nil {
+		return err
+	}
 
-	for {
-		if _, err := f.Read(bb); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		} else {
-			c.bytes = append(c.bytes, bb...)
-		}
+	c.bytes = make([]byte, s.Size())
+	if _, err := f.Read(c.bytes); err != nil {
+		return err
 	}
 	return nil
 }

@@ -117,15 +117,16 @@ func (t *Table) Insert(data interface{}) (err error) {
 	return nil
 }
 
-func (t *Table) GetByIndex(index int, row interface{}) {
+func (t *Table) GetByIndex(index int, row interface{}) error {
 	for i := range t.Columns {
 		col := &t.Columns[i]
-		if b, ok := col.GetBytes(index); ok {
-			ValueFromBytes(b, reflect.ValueOf(row).Elem().FieldByName(col.Name))
-		} else {
-			log.Fatalln("can't get value by id:", index, "in column", col.Name)
+		cel := col.GetBytes(index)
+		err := ValueFromBytes(cel, reflect.ValueOf(row).Elem().FieldByName(col.Name))
+		if err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func (t *Table) Update(id int, row interface{}) (err error) {
@@ -192,8 +193,8 @@ func (t *Table) loadTableInfo() (err error) {
 type FindFieldCond struct {
 	Field string
 	Value interface{}
-	Bytes Value
 }
+
 /*
 func (t *Table) Find(field string, value interface{}, limit int) *[]int {
 	return t.FindByCond([]FindFieldCond{{Field: field, Value: value}}, limit)
@@ -236,7 +237,6 @@ func (t *Table) Find(field string, value interface{}, limit int) *[]int {
 //
 //	return res
 //}
-
 
 /*
 func (t *Table) CountByCond(cond []FindFieldCond) int {

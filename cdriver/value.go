@@ -3,43 +3,11 @@ package cdriver
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"reflect"
+	"errors"
 )
 
-type Value []byte
-
-func (v Value) Less(value interface{}) bool {
-	vv, ok := value.(Value)
-	if !ok {
-		panic("Invalid value for compare!")
-	}
-	return v.CompareWith(vv) == -1
-}
-
-func (v Value) Equal(value interface{}) bool {
-	vv, ok := value.(Value)
-	if !ok {
-		//log.Println(value)
-		panic("Invalid value for compare!")
-	}
-	return v.CompareWith(vv) == 0
-}
-
-func (v *Value) CompareWith(value Value) int {
-	eq := true
-	for j := 0; eq && j < len(*v) && j < len(value); j++ {
-		eq = (*v)[j] == value[j]
-		if !eq {
-			if (*v)[j] < value[j] {
-				return 1
-			} else {
-				return -1
-			}
-		}
-	}
-	return 0
-}
+const ERR_BYTES_TO_LONG = "Length of bytes more than length of column"
 
 func ValueToBytes(cell interface{}, length int) ([]byte, error) {
 	var buf bytes.Buffer
@@ -52,11 +20,11 @@ func ValueToBytes(cell interface{}, length int) ([]byte, error) {
 	b1 := buf.Bytes()
 
 	if len(b1) > length {
-		panic(fmt.Sprintf("bytes length greather than length:", len(b1), ">", length, "\n"))
+		return nil, errors.New(ERR_BYTES_TO_LONG)
 	}
 
 	if length > len(b1) {
-		b1 = append(make([]byte, length-len(b1)), b1...)
+		b1 = append(b1, make([]byte, length-len(b1))...)
 	}
 
 	return b1, nil
@@ -64,9 +32,9 @@ func ValueToBytes(cell interface{}, length int) ([]byte, error) {
 
 func ValueFromBytes(b []byte, v reflect.Value) error {
 
-	for j := 0; j < len(b); j++ {
-		if b[j] > 0 {
-			b = b[j:]
+	for j := len(b) - 1; j > - 1; j-- {
+		if b[j] != 0 {
+			b = b[0:j+1]
 			break
 		}
 	}

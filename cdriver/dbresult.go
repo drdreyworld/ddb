@@ -1,5 +1,9 @@
 package cdriver
 
+import (
+	"reflect"
+)
+
 type DbResult struct {
 	table     *Table
 	positions map[int]int
@@ -18,16 +22,20 @@ func (r *DbResult) GetRowsCount() int {
 	return len(r.positions)
 }
 
-func (r *DbResult) FetchRow() map[string]interface{} {
-	row := map[string]interface{}{}
+func (r *DbResult) FetchRow(row interface{}) error {
 
 	for pos := range r.positions {
 		for i := 0; i < len(r.table.Columns); i++ {
 			col := &r.table.Columns[i]
-			row[col.Name], _ = col.GetBytes(pos)
+			err := ValueFromBytes(col.GetBytes(pos), reflect.ValueOf(row).Elem().FieldByName(col.Name))
+
+			if err != nil {
+				return err
+			}
 		}
+
 		break
 	}
 
-	return row
+	return nil
 }
