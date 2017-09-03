@@ -36,7 +36,7 @@ func CreateUsersRowset() Rowset {
 		},
 		Rows: []Row{
 			{[]string{"1", "Петя", "Иванов"}},
-			{[]string{"2", "Стас", "Петров"}},
+			{[]string{"2", "Стас"}},
 			{[]string{"3", "Вася", "Пупкин"}},
 		},
 	}

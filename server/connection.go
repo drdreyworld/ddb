@@ -8,6 +8,11 @@ type Connection struct {
 	listener   *Listener
 	connection net.Conn
 	sequence   byte
+
+	status        statusFlag
+	affecterRows  int
+	lastInsertId  int
+	warningsCount int
 }
 
 func (c *Connection) resetSequence() byte {
@@ -22,7 +27,15 @@ func (c *Connection) nextSequence() byte {
 
 var err error
 
+func (c *Connection) resetConnStatus() {
+	c.status = statusInAutocommit
+	c.affecterRows = 0
+	c.lastInsertId = 0
+	c.warningsCount = 0
+}
+
 func (c *Connection) Handle() {
+	c.resetConnStatus()
 	c.writeInitialPacket()
 
 	if err = c.readAuthPacket(); err != nil {
@@ -30,9 +43,10 @@ func (c *Connection) Handle() {
 	}
 
 	c.nextSequence()
-	c.writeOkPacket(0, 0, statusInAutocommit, 0)
+	c.writeOkPacket()
 
 	for {
+		c.resetConnStatus()
 		c.resetSequence()
 		p := Packet{}
 
@@ -51,16 +65,30 @@ func (c *Connection) Handle() {
 		switch query {
 		case "select @@version_comment limit 1":
 			c.sequence = p.readSequence()
-			c.writeOkPacket(0, 0, statusInAutocommit, 0)
+			c.writeRowset(Rowset{
+				Cols:[]Col{
+					{Name:"@@version_comment"},
+				},
+				Rows:[]Row{
+					{[]string{"DDB SQL Server v0.1"}},
+				},
+			})
 			break
 		case "select 'aaa'":
 			c.sequence = p.readSequence()
-			c.writeAaaResponse()
+			c.writeRowset(Rowset{
+				Cols:[]Col{
+					{Name:"aaa"},
+				},
+				Rows:[]Row{
+					{[]string{"aaa"}},
+				},
+			})
 			break
 
 		case "select * from users":
 			c.sequence = p.readSequence()
-			c.writeUsersResponse()
+			c.writeRowset(CreateUsersRowset())
 			break
 		}
 	}
@@ -140,81 +168,17 @@ func (c *Connection) readAuthPacket() (err error) {
 	return nil
 }
 
-func (c *Connection) writeAaaResponse() {
+func (c *Connection) writeRowset(rowset Rowset) {
+	c.resetSequence()
 	p := Packet{}
 
-	c.resetSequence()
-
-	p.data = []byte{}
-	p.appendBytes(1, 0, 0, c.nextSequence(), 1)
-	p.appendIntegerLengthEncoded(0)
-	p.appendIntegerLengthEncoded(0)
-	p.appendBytes(2, 0) // status
-	p.appendBytes(0, 0) // warnings
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-
-	p.data = []byte{}
-	p.appendBytes(25, 0, 0, c.nextSequence(), 3, 100, 101, 102, 0, 0, 0, 3, 97, 97, 97, 0, 12, 33, 0, 9, 0, 0, 0, 253, 1, 0, 31, 0, 0)
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-
-	p.data = []byte{}
-	p.appendBytes(4, 0, 0, c.nextSequence())
-	p.appendStringLengthEncoded("Вова")
-	p.appendStringLengthEncoded("Петечкин")
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-
-	p.data = []byte{}
-	p.appendBytes(4, 0, 0, c.nextSequence())
-	p.appendStringLengthEncoded("Саша")
-	p.appendStringLengthEncoded("Белый")
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-
-	p.data = []byte{}
-	p.appendBytes(4, 0, 0, c.nextSequence())
-	p.appendStringLengthEncoded("Вася")
-	p.appendStringLengthEncoded("Пупкин")
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-
-	p.data = []byte{}
-	p.appendBytes(5, 0, 0, c.nextSequence(), iEOF, 0, 0, 2, 0) // EOF ?
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
-}
-
-func (c *Connection) writeUsersResponse() {
-	p := Packet{}
-
-	rowset := CreateUsersRowset()
-
-	c.resetSequence()
-
-	p.data = []byte{}
-	p.appendBytes(1, 0, 0, c.nextSequence(), byte(len(rowset.Cols)))
-	p.appendIntegerLengthEncoded(0)
-	p.appendIntegerLengthEncoded(0)
-	p.appendBytes(2, 0) // status
-	p.appendBytes(0, 0) // warnings
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println(p.data)
+	c.writeCmdPacket(byte(len(rowset.Cols)))
 
 	for i := range rowset.Cols {
 		col := rowset.Cols[i]
-		p.data = []byte{}
-		p.appendBytes(25, 0, 0, c.nextSequence())
-		p.appendBytes(3, 100, 101, 102)
-		p.appendBytes(0, 0, 0)
+		p.data = []byte{0, 0, 0, c.nextSequence()}
+		p.appendBytes(0, 0, 0 ,0)
+		//p.appendStringLengthEncoded("def")
 		//p.appendStringLengthEncoded("schema")
 		//p.appendStringLengthEncoded("users")
 		//p.appendStringLengthEncoded("alias_for_"+col.Name)
@@ -226,8 +190,7 @@ func (c *Connection) writeUsersResponse() {
 	}
 
 	for i := range rowset.Rows {
-		p.data = []byte{}
-		p.appendBytes(4, 0, 0, c.nextSequence())
+		p.data = []byte{0, 0, 0, c.nextSequence()}
 		for j := range rowset.Rows[i].cells {
 			p.appendStringLengthEncoded(rowset.Rows[i].cells[j])
 		}
@@ -236,34 +199,29 @@ func (c *Connection) writeUsersResponse() {
 		c.listener.Println(p.data)
 	}
 
-	c.writeEOF(0, 0, statusInAutocommit|statusLastRowSent,3)
+	c.status = c.status|statusLastRowSent
+	c.writeEOF()
 }
 
-func (c *Connection) writeOkPacket(affectedRows, lastInsertId int, status statusFlag, warnings int) {
+func (c *Connection) writeOkPacket() {
+	c.writeCmdPacket(iOK)
+}
+
+func (c *Connection) writeEOF() {
+	c.writeCmdPacket(iEOF)
+}
+
+func (c *Connection) writeCmdPacket(cmd byte) {
+	// cmd - iOK | iOEF
 	p := Packet{}
-	p.appendBytes(0, 0, 0, c.nextSequence(), iOK)
-	p.appendIntegerLengthEncoded(uint64(affectedRows))
-	p.appendIntegerLengthEncoded(uint64(lastInsertId))
-	p.appendBytes(byte(status), byte(status>>8)) // status
-	p.appendIntegerLengthEncoded(uint64(warnings))
+	p.appendBytes(0, 0, 0, c.nextSequence(), cmd)
+	p.appendIntegerLengthEncoded(uint64(c.affecterRows))
+	p.appendIntegerLengthEncoded(uint64(c.lastInsertId))
+	p.appendBytes(byte(c.status), byte(c.status>>8))
+	p.appendIntegerLengthEncoded(uint64(c.warningsCount))
 
 	p.calcucateLength()
 	c.connection.Write(p.data)
-	c.listener.Println("write OK packet to client")
+	c.listener.Println("write CMD",cmd,"packet to client")
 	c.listener.Println(p.data)
 }
-
-func (c *Connection) writeEOF(affectedRows, lastInsertId int, status statusFlag, warnings int) {
-	p := Packet{}
-	p.appendBytes(0, 0, 0, c.nextSequence(), iEOF)
-	p.appendIntegerLengthEncoded(uint64(affectedRows))
-	p.appendIntegerLengthEncoded(uint64(lastInsertId))
-	p.appendBytes(byte(status), byte(status>>8)) // status
-	p.appendIntegerLengthEncoded(uint64(warnings))
-
-	p.calcucateLength()
-	c.connection.Write(p.data)
-	c.listener.Println("write EOF packet to client")
-	c.listener.Println(p.data)
-}
-
