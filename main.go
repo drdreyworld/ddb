@@ -59,16 +59,31 @@ func OpenTable() {
 }
 
 func main() {
-	CreateTable()
-	//OpenTable()
+	//CreateTable()
+	OpenTable()
 
 	for i := 0; i < 10; i++ {
 		t = time.Now()
-		r, _ := table.FindByIndex([]cdriver.FindFieldCond{
+		r, err := table.FindByIndex([]cdriver.FindFieldCond{
 			{Field: "FName", Value: FNames[rand.Intn(len(FNames))]},
 			{Field: "LName", Value: LNames[rand.Intn(len(LNames))]},
 		}, 10)
-		fmt.Println("Find rows by 2 columns", time.Now().Sub(t), "results count: ", r.GetRowsCount())
+		if err != nil {
+			fmt.Println("Error:", err)
+		} else {
+			fmt.Println("Find rows by 2 columns", time.Now().Sub(t), "results count: ", r.GetRowsCount())
+			row := u{}
+			for j := 0; j < 20; j++ {
+				if err := r.FetchRow(&row); err != nil {
+					fmt.Println("Fetch row Error:", err)
+					break
+				} else {
+					//fmt.Print(".")
+					fmt.Println("Fetch row:", row)
+				}
+			}
+			fmt.Println()
+		}
 	}
 
 	t = time.Now()
@@ -83,7 +98,6 @@ func main() {
 		} else {
 			fmt.Println("Fetch row:", row)
 		}
-
 
 	}
 }

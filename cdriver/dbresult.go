@@ -2,40 +2,56 @@ package cdriver
 
 import (
 	"reflect"
+	"errors"
 )
 
 type DbResult struct {
 	table     *Table
-	positions map[int]int
+	current   int
+	positions []int
 }
 
 func (r *DbResult) Init(t *Table) {
 	r.table = t
-	r.positions = map[int]int{}
+	r.positions = []int{}
 }
 
 func (r *DbResult) SetPositions(p map[int]int) {
-	r.positions = p
+	r.positions = make([]int, len(p))
+	r.current = 0
+	for position := range p {
+		r.positions[r.current] = position
+		r.current++
+	}
+	r.current = 0
 }
 
 func (r *DbResult) GetRowsCount() int {
 	return len(r.positions)
 }
 
+func (r *DbResult) Rewind() {
+	r.current = 0
+}
+
 func (r *DbResult) FetchRow(row interface{}) error {
-
-	for pos := range r.positions {
-		for i := 0; i < len(r.table.Columns); i++ {
-			col := &r.table.Columns[i]
-			err := ValueFromBytes(col.GetBytes(pos), reflect.ValueOf(row).Elem().FieldByName(col.Name))
-
-			if err != nil {
-				return err
-			}
-		}
-
-		break
+	if r.current >= len(r.positions) {
+		return nil
 	}
+
+	res := r.table.Columns.GetRowByIndex(r.positions[r.current])
+	ref := reflect.ValueOf(row).Elem()
+
+	for name, val := range res {
+		err := ValueFromBytes(val, ref.FieldByName(name))
+
+		if err != nil {
+			return errors.New("banana")
+			//return err
+		}
+	}
+
+	r.current++
 
 	return nil
 }

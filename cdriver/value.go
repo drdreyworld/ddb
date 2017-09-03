@@ -31,14 +31,6 @@ func ValueToBytes(cell interface{}, length int) ([]byte, error) {
 }
 
 func ValueFromBytes(b []byte, v reflect.Value) error {
-
-	for j := len(b) - 1; j > - 1; j-- {
-		if b[j] != 0 {
-			b = b[0:j+1]
-			break
-		}
-	}
-
 	var buf bytes.Buffer
 	buf.Write(b)
 
