@@ -2,17 +2,25 @@ package main
 
 import (
 	"ddb/server"
-	"log"
-	"os"
-	"net"
 	"ddb/server/mysql41"
 	"ddb/sql"
+	"flag"
+	"log"
+	"net"
+	"os"
 )
 
 var err error
 
+var (
+	Host *string = flag.String("host", "127.0.0.1", "server host")
+	Port *string = flag.String("port", "3306", "server port")
+)
+
 func main() {
-	listener := server.Listener{Host:"127.0.0.1", Port:"3306"}
+	flag.Parse()
+
+	listener := server.Listener{Host: *Host, Port: *Port}
 	listener.HandleFunc = func(conn net.Conn) {
 		mysql41.NewConnection(conn).Handle(&sql.Parser{})
 	}
