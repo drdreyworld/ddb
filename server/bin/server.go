@@ -1,24 +1,23 @@
 package main
 
 import (
-	"ddb/server/protocol"
+	"ddb/server"
 	"log"
 	"os"
+	"net"
+	"ddb/server/mysql41"
+	"ddb/sql"
 )
 
 var err error
 
 func main() {
-	listener := protocol.NewListener("127.0.0.1", "3306")
-
-	if err = listener.Listen(); err != nil {
-		log.Fatalln(err)
-		os.Exit(1)
+	listener := server.Listener{Host:"127.0.0.1", Port:"3306"}
+	listener.HandleFunc = func(conn net.Conn) {
+		mysql41.NewConnection(conn).Handle(&sql.Parser{})
 	}
 
-	defer listener.CloseConnection()
-
-	if err = listener.AcceptConnections(); err != nil {
+	if err = listener.Listen(); err != nil {
 		log.Fatalln(err)
 		os.Exit(1)
 	}

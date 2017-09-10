@@ -1,20 +1,23 @@
-package protocol
+package mysql41
 
 import (
-	"ddb/sql"
-	"fmt"
 	"net"
+	"ddb/structs/types"
 )
 
 type Connection struct {
-	listener   *Listener
-	connection net.Conn
-	sequence   byte
-
+	connection    net.Conn
+	sequence      byte
 	status        statusFlag
 	affecterRows  int
 	lastInsertId  int
 	warningsCount int
+}
+
+func NewConnection(conn net.Conn) *Connection {
+	result := &Connection{}
+	result.connection = conn
+	return result
 }
 
 func (c *Connection) resetSequence() byte {
@@ -36,7 +39,7 @@ func (c *Connection) resetConnStatus() {
 	c.warningsCount = 0
 }
 
-func (c *Connection) Handle() {
+func (c *Connection) Handle(parser types.QueryParser) {
 	c.resetConnStatus()
 	c.writeInitialPacket()
 
@@ -48,61 +51,44 @@ func (c *Connection) Handle() {
 	c.writeOkPacket()
 
 	for {
-		c.resetConnStatus()
-		c.resetSequence()
-		p := Packet{}
-
-		if err = p.readBytes(c); err != nil {
+		p, err := c.readPacket()
+		if err != nil {
 			return
 		}
 
-		q := p.readQuery()
-
-		parser := sql.Parser{}
-		query := parser.Parse(q)
+		query, err := parser.Parse(p.readQuery())
+		if err != nil {
+			c.sequence = p.readSequence()
+			c.writeError(1064, "Parse error:" + err.Error())
+			continue
+		}
 
 		if query == nil {
 			c.sequence = p.readSequence()
-			c.writeError(1064, "Can't parse SQL query")
-		} else {
-			if res, err := query.Execute(); err != nil {
-				c.sequence = p.readSequence()
-				c.writeError(1064, err.Error())
-			} else {
-				rows := Rowset{}
-
-				for _, col := range query.Columns {
-					rows.Cols = append(rows.Cols, Col{
-						Name:   col.Value,
-						Length: 255,
-						Type:   fieldTypeVarChar,
-					})
-				}
-
-				if res != nil {
-					for {
-						if row, err := res.FetchMap(); err != nil {
-							if err.Error() != "EOF" {
-								fmt.Println("Fetch row Error:", err)
-							}
-							break
-						} else {
-							cells := []string{}
-
-							for _, col := range query.Columns {
-								cells = append(cells, row[col.Value])
-							}
-
-							rows.Rows = append(rows.Rows, Row{cells: cells})
-						}
-					}
-				}
-
-				c.sequence = p.readSequence()
-				c.writeRowset(rows)
-			}
+			c.writeError(1064, "Parse error: query is nil")
+			continue
 		}
+
+		rows, err := query.Execute()
+		if err != nil {
+			c.sequence = p.readSequence()
+			c.writeError(1064, "Execution error: " + err.Error())
+			continue
+		}
+
+		c.sequence = p.readSequence()
+		c.writeRowset(*rows)
 	}
+}
+
+func (c *Connection) readPacket() (pak Packet, err error) {
+	c.resetConnStatus()
+	c.resetSequence()
+
+	pak = Packet{}
+	err = pak.readBytes(c)
+
+	return pak, err
 }
 
 func (c *Connection) writeInitialPacket() {
@@ -174,7 +160,7 @@ func (c *Connection) readAuthPacket() (err error) {
 	return nil
 }
 
-func (c *Connection) writeRowset(rowset Rowset) {
+func (c *Connection) writeRowset(rowset types.Rowset) {
 	c.resetSequence()
 	p := Packet{}
 
@@ -196,8 +182,8 @@ func (c *Connection) writeRowset(rowset Rowset) {
 
 	for i := range rowset.Rows {
 		p.data = []byte{0, 0, 0, c.nextSequence()}
-		for j := range rowset.Rows[i].cells {
-			p.appendStringLengthEncoded(rowset.Rows[i].cells[j])
+		for j := range rowset.Rows[i] {
+			p.appendStringLengthEncoded(rowset.Rows[i][j])
 		}
 		p.calcucateLength()
 		c.connection.Write(p.data)

@@ -99,6 +99,11 @@ func (i *Index) Find(row map[string][]byte, limit, offset int) (res *DbResult) {
 	}
 
 	if ps, ok := item.GetValue().([]int); ok {
+		if limit == 0 && offset == 0 {
+			limit = len(ps)
+			offset = 0
+		}
+
 		if offset < len(ps) {
 			if limit > len(ps)-offset {
 				limit = len(ps) - offset

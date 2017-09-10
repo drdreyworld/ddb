@@ -3,30 +3,14 @@ package qselect
 import (
 	"regexp"
 	"strings"
+	"ddb/structs/types"
 )
 
-type Columns []Column
+type ParseColumnFunc func(q string) (query string, column types.Column, result bool)
 
-type ColumnType string
+func ParseColumns(q string) (query string, columns types.Columns, result bool) {
 
-const (
-	COL_TYPE_COLUMN    ColumnType = "column"
-	COL_TYPE_FUNCTION  ColumnType = "function"
-	COL_TYPE_CONST_STR ColumnType = "const_str"
-	COL_TYPE_CONST_INT ColumnType = "const_int"
-	COL_TYPE_EXPR_MATH ColumnType = "expr_math"
-)
-
-type Column struct {
-	Type  ColumnType
-	Value string
-}
-
-type ParseColumnFunc func(q string) (query string, column Column, result bool)
-
-func ParseColumns(q string) (query string, columns Columns, result bool) {
-
-	columns = Columns{}
+	columns = types.Columns{}
 
 	funcs := []ParseColumnFunc{
 		ParseColumnMath,
@@ -48,7 +32,7 @@ func ParseColumns(q string) (query string, columns Columns, result bool) {
 		q = string(recomma.ReplaceAll([]byte(q), []byte{}))
 
 		for _, f := range funcs {
-			var c Column
+			var c types.Column
 
 			if q, c, r = f(q); !r {
 				continue
@@ -67,7 +51,7 @@ func ParseColumns(q string) (query string, columns Columns, result bool) {
 	return q, columns, result
 }
 
-func parseColumnByRegexp(q string, re *regexp.Regexp, ct ColumnType) (query string, column Column, result bool) {
+func parseColumnByRegexp(q string, re *regexp.Regexp, ct types.ColumnType) (query string, column types.Column, result bool) {
 	match, q, result := parseByRegexp(re, q)
 	if result {
 		column.Type = ct
@@ -76,27 +60,27 @@ func parseColumnByRegexp(q string, re *regexp.Regexp, ct ColumnType) (query stri
 	return q, column, result
 }
 
-func ParseColumnMath(q string) (query string, column Column, result bool) {
-	return parseColumnByRegexp(q, remath, COL_TYPE_EXPR_MATH)
+func ParseColumnMath(q string) (query string, column types.Column, result bool) {
+	return parseColumnByRegexp(q, remath, types.COL_TYPE_EXPR_MATH)
 }
 
-func ParseColumnConstStr(q string) (query string, column Column, result bool) {
-	return parseColumnByRegexp(q, reconststr, COL_TYPE_CONST_STR)
+func ParseColumnConstStr(q string) (query string, column types.Column, result bool) {
+	return parseColumnByRegexp(q, reconststr, types.COL_TYPE_CONST_STR)
 }
 
-func ParseColumnConstInt(q string) (query string, column Column, result bool) {
-	return parseColumnByRegexp(q, reconstint, COL_TYPE_CONST_INT)
+func ParseColumnConstInt(q string) (query string, column types.Column, result bool) {
+	return parseColumnByRegexp(q, reconstint, types.COL_TYPE_CONST_INT)
 }
 
-func ParseColumnFuncCall(q string) (query string, column Column, result bool) {
-	return parseColumnByRegexp(q, refunc, COL_TYPE_FUNCTION)
+func ParseColumnFuncCall(q string) (query string, column types.Column, result bool) {
+	return parseColumnByRegexp(q, refunc, types.COL_TYPE_FUNCTION)
 }
 
-func ParseColumnColWithAlias(q string) (query string, column Column, result bool) {
+func ParseColumnColWithAlias(q string) (query string, column types.Column, result bool) {
 	// @TODO Parse column alias
-	return parseColumnByRegexp(q, recolumnWithAlias, COL_TYPE_COLUMN)
+	return parseColumnByRegexp(q, recolumnWithAlias, types.COL_TYPE_COLUMN)
 }
 
-func ParseColumnCol(q string) (query string, column Column, result bool) {
-	return parseColumnByRegexp(q, recolumn, COL_TYPE_COLUMN)
+func ParseColumnCol(q string) (query string, column types.Column, result bool) {
+	return parseColumnByRegexp(q, recolumn, types.COL_TYPE_COLUMN)
 }

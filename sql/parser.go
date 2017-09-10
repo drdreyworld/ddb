@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"ddb/sql/qselect"
+	"ddb/structs/types"
+	"errors"
 )
 
 type Parser struct {
@@ -11,7 +13,7 @@ type Parser struct {
 	strvars map[string]string
 }
 
-func (p *Parser) Parse(query string) (*qselect.Select) {
+func (p *Parser) Parse(query string) (types.Query, error) {
 	p.strvars = map[string]string{}
 	p.query = query
 	p.cutStrings()
@@ -26,9 +28,10 @@ func (p *Parser) Parse(query string) (*qselect.Select) {
 				result.Where[i].OperandB = val
 			}
 		}
+		return result, nil
 	}
 
-	return result
+	return nil, errors.New("Can't parse query")
 }
 
 func (p *Parser) GetQuery() string {

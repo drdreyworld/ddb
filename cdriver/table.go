@@ -1,13 +1,15 @@
 package cdriver
 
 import (
+	"ddb/structs/types"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
-	"fmt"
+	"strconv"
 )
 
 type Table struct {
@@ -192,8 +194,9 @@ func (t *Table) loadTableInfo() (err error) {
 }
 
 type FindFieldCond struct {
-	Field string
-	Value interface{}
+	Field      string
+	Value      interface{}
+	Compartion string
 }
 
 func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *Index) {
@@ -241,7 +244,6 @@ func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *Index) {
 	return idx
 }
 
-
 func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
 	if idx = t.GetBestIndexByCond(cond); idx != nil {
 		return idx
@@ -278,4 +280,81 @@ func (t *Table) FindByIndex(cond []FindFieldCond, limit, offset int) (res *DbRes
 	}
 
 	return idx.Find(t.convertCondToRow(cond), limit, offset), nil
+}
+
+func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err error) {
+	res = []FindFieldCond{}
+	for i := range where {
+		c := t.Columns.ByName(where[i].OperandA)
+		if c == nil {
+			return nil, errors.New("Unknown column " + where[i].OperandA)
+		}
+
+		switch c.Type {
+
+		case "int64":
+			val, err := strconv.Atoi(where[i].OperandB)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, FindFieldCond{
+				Field:      where[i].OperandA,
+				Value:      val,
+				Compartion: where[i].Compartion,
+			})
+			break
+
+		case "string":
+			res = append(res, FindFieldCond{
+				Field:      where[i].OperandA,
+				Value:      where[i].OperandB,
+				Compartion: where[i].Compartion,
+			})
+
+			break
+		default:
+			return nil, errors.New("Unknown column type " + c.Type)
+		}
+	}
+	return res, nil
+}
+
+func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int) (res *DbResult, err error) {
+	var idx *Index
+	var cond []FindFieldCond
+
+	if cond, err = t.CreateFindCond(where); err != nil {
+		return nil, err
+	}
+
+	if len(cond) > 0 {
+		if idx = t.GetIndexByCond(cond); idx != nil {
+			return idx.Find(t.convertCondToRow(cond), limit, offset), nil
+		}
+		//  @TODO FIND By columns
+	}
+
+	res = &DbResult{}
+	res.Init(t)
+
+	if limit == 0 && offset == 0 {
+		limit = t.Columns.GetRowsCount()
+	}
+
+	if offset >= t.Columns.GetRowsCount() {
+		offset = t.Columns.GetRowsCount() - 1
+		limit = 0
+	}
+
+	if limit > t.Columns.GetRowsCount()-offset {
+		limit = t.Columns.GetRowsCount() - offset
+	}
+
+	pos := make([]int, limit)
+	for i := 0; i < limit; i++ {
+		pos[i] = offset + i
+	}
+	res.SetPositions(pos)
+
+	return res, nil
 }

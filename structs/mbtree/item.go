@@ -93,3 +93,23 @@ func (i *TItem) Dispose() {
 	i.data = nil
 	i = nil
 }
+
+func (i *TItem) InfixTraverse(fn func(i *TItem) bool) bool {
+	if i.left != nil {
+		if !i.left.InfixTraverse(fn) {
+			return false
+		}
+	}
+
+	if !fn(i) {
+		return false
+	}
+
+	if i.right != nil {
+		if !i.right.InfixTraverse(fn) {
+			return false
+		}
+	}
+
+	return true
+}

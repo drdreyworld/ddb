@@ -1,4 +1,4 @@
-package protocol
+package mysql41
 
 const protocolVersion byte = 10
 

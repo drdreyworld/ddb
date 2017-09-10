@@ -3,21 +3,14 @@ package qselect
 import (
 	"regexp"
 	"strings"
+	"ddb/structs/types"
 )
 
-type ParseWhereCondFunc func(q string) (query string, whereCond WhereCond, result bool)
+type ParseWhereCondFunc func(q string) (query string, whereCond types.WhereCond, result bool)
 
-type Where []WhereCond
+func ParseWhere(q string) (query string, where types.Where, result bool) {
 
-type WhereCond struct {
-	OperandA   string
-	OperandB   string
-	Compartion string
-}
-
-func ParseWhere(q string) (query string, where Where, result bool) {
-
-	where = Where{}
+	where = types.Where{}
 
 	if _, q, result = parseByRegexp(rewhere, q); !result {
 		return q, where, result
@@ -39,7 +32,7 @@ func ParseWhere(q string) (query string, where Where, result bool) {
 		q = string(reandor.ReplaceAll([]byte(q), []byte{}))
 
 		for _, f := range funcs {
-			var wc WhereCond
+			var wc types.WhereCond
 
 			if q, wc, r = f(q); !r {
 				continue
@@ -83,7 +76,7 @@ func ParseWhereOperand(q string) (query string, operand string, result bool) {
 	return query, operand, result
 }
 
-func ParseWhereCond(q string) (query string, whereCond WhereCond, result bool) {
+func ParseWhereCond(q string) (query string, whereCond types.WhereCond, result bool) {
 
 	query = q
 

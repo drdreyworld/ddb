@@ -3,12 +3,14 @@ package qselect
 import (
 	"ddb/cdriver"
 	"errors"
+	"ddb/structs/types"
+	"fmt"
 )
 
 type Select struct {
-	Columns Columns
+	Columns types.Columns
 	From    From
-	Where   Where
+	Where   types.Where
 	Order   Order
 	Limit   Limit
 }
@@ -46,8 +48,9 @@ func getTable(name string) (tab *cdriver.Table, err error) {
 	return tab, nil
 }
 
-func (s *Select) Execute() (res *cdriver.DbResult, err error) {
+func (s *Select) Execute() (rows *types.Rowset, err error) {
 	var table *cdriver.Table
+	var res *cdriver.DbResult
 
 	if len(s.From) < 1 {
 		return nil, errors.New("FROM statement is empty")
@@ -59,19 +62,45 @@ func (s *Select) Execute() (res *cdriver.DbResult, err error) {
 		return nil, err
 	}
 
-	findConds := []cdriver.FindFieldCond{}
+	res, err = table.Select(
+		s.Columns,
+		s.Where,
+		s.Limit.RowCount,
+		s.Limit.Offset,
+	);
 
-	for _, wc := range s.Where {
-		findConds = append(findConds, cdriver.FindFieldCond{
-			Field: wc.OperandA,
-			Value: wc.OperandB,
-		})
-	}
-
-	res, err = table.FindByIndex(findConds, s.Limit.RowCount, s.Limit.Offset)
 	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	rows = &types.Rowset{}
+
+	for _, col := range s.Columns {
+		rows.Cols = append(rows.Cols, types.Col{
+			Name:   col.Value,
+			Length: 255,
+			Type:   15, //fieldTypeVarChar,
+		})
+	}
+
+	if res != nil {
+		for {
+			if row, err := res.FetchMap(); err != nil {
+				if err.Error() != "EOF" {
+					fmt.Println("Fetch row Error:", err)
+				}
+				break
+			} else {
+				cells := []string{}
+
+				for _, col := range s.Columns {
+					cells = append(cells, row[col.Value])
+				}
+
+				rows.Rows = append(rows.Rows, cells)
+			}
+		}
+	}
+
+	return rows, nil
 }

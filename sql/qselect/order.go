@@ -1,5 +1,7 @@
 package qselect
 
+import "ddb/structs/types"
+
 type Order []OrderExpr
 
 type OrderExpr struct {
@@ -31,7 +33,7 @@ func ParseOrder(q string) (query string, order Order, result bool) {
 
 		for _, f := range funcs {
 
-			var c Column
+			var c types.Column
 
 			if q, c, r = f(q); !r {
 				continue

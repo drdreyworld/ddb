@@ -6,8 +6,8 @@ type BTree struct {
 
 func (t *BTree) CreateItem(data Data) *TItem {
 	return &TItem{
-		data: &data,
-		tree: t,
+		data:    &data,
+		tree:    t,
 		subtree: &BTree{},
 	}
 }
@@ -67,6 +67,23 @@ func (t *BTree) Find(key int) *TItem {
 	return nil
 }
 
+func (t *BTree) FindLess(key int) []*TItem {
+	if t.root == nil {
+		return nil
+	}
+
+	result := []*TItem{}
+
+	t.root.InfixTraverse(func(i *TItem) (r bool) {
+		if r = i.GetKey() < key; r {
+			result = append(result, i)
+		}
+		return r
+	})
+
+	return result
+}
+
 func (t *BTree) Delete(key int) bool {
 	p := t.Find(key)
 
@@ -117,7 +134,6 @@ func (t *BTree) Delete(key int) bool {
 		p.Dispose()
 		return true
 	}
-
 
 	r := p.right.Min()
 
