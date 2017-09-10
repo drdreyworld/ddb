@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strings"
 	"ddb/structs/types"
-	"fmt"
 )
 
 type ParseWhereCondFunc func(q string) (query string, whereCond types.WhereCond, result bool)
