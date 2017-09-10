@@ -89,7 +89,6 @@ func ParseWhereCond(q string) (query string, whereCond types.WhereCond, result b
 
 	if recompare.MatchString(q) {
 		whereCond.Compartion = strings.Trim(recompare.FindString(q), " ")
-		fmt.Println("parse compartion : ",whereCond.Compartion)
 		q = string(recompare.ReplaceAll([]byte(q), []byte{}))
 	} else {
 		return query, whereCond, false
