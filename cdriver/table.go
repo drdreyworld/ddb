@@ -4,7 +4,6 @@ import (
 	"ddb/structs/types"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,10 +12,10 @@ import (
 )
 
 type Table struct {
-	Name    string  `json:"name"`
-	Columns Columns `json:"columns"`
-	MaxId   int     `json:"max_id"`
-	Indexes []Index `json:"indexes"`
+	Name    string     `json:"name"`
+	Columns Columns    `json:"columns"`
+	MaxId   int        `json:"max_id"`
+	Indexes []IndexStr `json:"indexes"`
 }
 
 func OpenTable(name string) (t *Table, err error) {
@@ -195,11 +194,11 @@ func (t *Table) loadTableInfo() (err error) {
 
 type FindFieldCond struct {
 	Field      string
-	Value      interface{}
+	Value      []byte
 	Compartion string
 }
 
-func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *Index) {
+func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
 	// количество столбцов в индексе
 	idxLen := len(cond)
 
@@ -225,7 +224,7 @@ func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *Index) {
 	return idx
 }
 
-func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *Index) {
+func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
 	for i := range t.Indexes {
 		idx = &t.Indexes[i]
 
@@ -244,7 +243,7 @@ func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *Index) {
 	return idx
 }
 
-func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
+func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
 	if idx = t.GetBestIndexByCond(cond); idx != nil {
 		return idx
 	}
@@ -252,15 +251,12 @@ func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
 }
 
 func (t *Table) convertCondToRow(cond []FindFieldCond) (row map[string][]byte) {
-	cols := map[string]*Column{}
 	row = map[string][]byte{}
 
 	for c := range cond {
 		if col := t.Columns.ByName(cond[c].Field); col == nil {
 			panic("column not found by name " + cond[c].Field)
 		} else {
-			cols[col.Name] = col
-
 			b, err := ValueToBytes(cond[c].Value, col.Length)
 			if err != nil {
 				panic(err)
@@ -270,16 +266,6 @@ func (t *Table) convertCondToRow(cond []FindFieldCond) (row map[string][]byte) {
 		}
 	}
 	return row
-}
-
-func (t *Table) FindByIndex(cond []FindFieldCond, limit, offset int) (res *DbResult, err error) {
-	var idx *Index
-
-	if idx = t.GetIndexByCond(cond); idx == nil {
-		return nil, errors.New(fmt.Sprintf("Index not matched by cond %v", cond))
-	}
-
-	return idx.Find(t.convertCondToRow(cond), limit, offset), nil
 }
 
 func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err error) {
@@ -297,17 +283,28 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 			if err != nil {
 				return nil, err
 			}
+
+			ival, err := ValueToBytes(val, c.Length)
+			if err != nil {
+				return nil, err
+			}
+
 			res = append(res, FindFieldCond{
 				Field:      where[i].OperandA,
-				Value:      val,
+				Value:      ival,
 				Compartion: where[i].Compartion,
 			})
 			break
 
 		case "string":
+			sval, err := ValueToBytes(where[i].OperandB, c.Length)
+			if err != nil {
+				return nil, err
+			}
+
 			res = append(res, FindFieldCond{
 				Field:      where[i].OperandA,
-				Value:      where[i].OperandB,
+				Value:      sval,
 				Compartion: where[i].Compartion,
 			})
 
@@ -320,7 +317,7 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 }
 
 func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int) (res *DbResult, err error) {
-	var idx *Index
+	var idx *IndexStr
 	var cond []FindFieldCond
 
 	if cond, err = t.CreateFindCond(where); err != nil {
@@ -329,7 +326,7 @@ func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int)
 
 	if len(cond) > 0 {
 		if idx = t.GetIndexByCond(cond); idx != nil {
-			return idx.Find(t.convertCondToRow(cond), limit, offset), nil
+			return idx.Find(cond, limit, offset), nil
 		}
 		//  @TODO FIND By columns
 	}

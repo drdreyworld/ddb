@@ -1,14 +1,14 @@
 package cdriver
 
 import (
-	"ddb/structs/mbtree"
+	"ddb/structs/mcrcbtree"
 	"hash/crc32"
 )
 
-type Index struct {
+type IndexCRC struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
-	tree    mbtree.BTree
+	tree    mcrcbtree.BTree
 	crc32q  *crc32.Table
 	table   *Table
 }
@@ -18,17 +18,17 @@ type treeItem struct {
 	Positions []int
 }
 
-func (i *Index) Init(t *Table) {
+func (i *IndexCRC) Init(t *Table) {
 	i.table = t
 	i.crc32q = crc32.MakeTable(0xD5828281)
 }
 
-func (i *Index) GetCRC(data []byte) int {
+func (i *IndexCRC) GetCRC(data []byte) int {
 	return int(crc32.Checksum(data, i.crc32q))
 }
 
-func (i *Index) Add(pos int, row map[string][]byte) {
-	var item *mbtree.TItem
+func (i *IndexCRC) Add(pos int, row map[string][]byte) {
+	var item *mcrcbtree.TItem
 
 	tree := &i.tree
 
@@ -36,7 +36,7 @@ func (i *Index) Add(pos int, row map[string][]byte) {
 		key := i.GetCRC(row[column])
 
 		if item = tree.Find(key); item == nil {
-			tree.Add(mbtree.NewData(int(key), []int{pos}))
+			tree.Add(mcrcbtree.NewData(int(key), []int{pos}))
 			item = tree.Find(key)
 			tree = item.GetSubTree()
 		} else {
@@ -69,9 +69,9 @@ func posInSlice(pos int, ps []int) bool {
 	return false
 }
 
-func (i *Index) Find(row map[string][]byte, limit, offset int) (res *DbResult) {
-	var item *mbtree.TItem
-	var tree *mbtree.BTree
+func (i *IndexCRC) Find(row map[string][]byte, limit, offset int) (res *DbResult) {
+	var item *mcrcbtree.TItem
+	var tree *mcrcbtree.BTree
 
 	res = &DbResult{}
 	res.Init(i.table)

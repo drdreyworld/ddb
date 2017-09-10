@@ -87,7 +87,7 @@ func ParseWhereCond(q string) (query string, whereCond types.WhereCond, result b
 	recompare := regexp.MustCompile(`^(?i)\s*(<|>|=|\s*in\s*)\s*`)
 
 	if recompare.MatchString(q) {
-		whereCond.Compartion = recompare.FindString(q)
+		whereCond.Compartion = strings.Trim(recompare.FindString(q), " ")
 		q = string(recompare.ReplaceAll([]byte(q), []byte{}))
 	} else {
 		return query, whereCond, false

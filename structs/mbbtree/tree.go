@@ -1,4 +1,4 @@
-package mbtree
+package mbbtree
 
 type BTree struct {
 	root *TItem
@@ -19,13 +19,16 @@ func (t *BTree) Add(data Data) bool {
 	}
 	p := t.root
 
+	var cmp int
 	for {
-		if p.GetKey() == data.key {
+		cmp = p.GetKey().Compare(data.key)
+
+		if cmp == CMP_KEY_EQUAL {
 			p.data = &data
 			return true
 		}
 
-		if p.GetKey() > data.key {
+		if cmp == CMP_KEY_GREATHER {
 			if p.left == nil {
 				p.left = t.CreateItem(data)
 				p.left.parent = p
@@ -34,7 +37,8 @@ func (t *BTree) Add(data Data) bool {
 			p = p.left
 			continue
 		}
-		if p.GetKey() < data.key {
+
+		if cmp == CMP_KEY_LESS {
 			if p.right == nil {
 				p.right = t.CreateItem(data)
 				p.right.parent = p
@@ -47,17 +51,22 @@ func (t *BTree) Add(data Data) bool {
 	return false
 }
 
-func (t *BTree) Find(key int) *TItem {
+func (t *BTree) Find(key Key) *TItem {
 	if t.root == nil {
 		return nil
 	}
 
+	var cmp int
+
 	for p := t.root; p != nil; {
-		if p.GetKey() == key {
+
+		cmp = p.GetKey().Compare(key)
+
+		if cmp == CMP_KEY_EQUAL {
 			return p
 		}
 
-		if p.GetKey() > key {
+		if cmp == CMP_KEY_GREATHER {
 			p = p.left
 		} else {
 			p = p.right
@@ -67,7 +76,7 @@ func (t *BTree) Find(key int) *TItem {
 	return nil
 }
 
-func (t *BTree) FindLess(key int) []*TItem {
+func (t *BTree) FindLess(key Key) []*TItem {
 	if t.root == nil {
 		return nil
 	}
@@ -75,16 +84,33 @@ func (t *BTree) FindLess(key int) []*TItem {
 	result := []*TItem{}
 
 	t.root.InfixTraverse(func(i *TItem) (r bool) {
-		if r = i.GetKey() < key; r {
+		if r = i.GetKey().Less(key); r {
 			result = append(result, i)
 		}
-		return r
+		return true
 	})
 
 	return result
 }
 
-func (t *BTree) Delete(key int) bool {
+func (t *BTree) FindGreather(key Key) []*TItem {
+	if t.root == nil {
+		return nil
+	}
+
+	result := []*TItem{}
+
+	t.root.InfixTraverse(func(i *TItem) (r bool) {
+		if r = i.GetKey().Greather(key); r {
+			result = append(result, i)
+		}
+		return true
+	})
+
+	return result
+}
+
+func (t *BTree) Delete(key Key) bool {
 	p := t.Find(key)
 
 	if p == nil {
@@ -137,7 +163,7 @@ func (t *BTree) Delete(key int) bool {
 
 	r := p.right.Min()
 
-	if r.parent.GetKey() == p.GetKey() {
+	if r.parent.GetKey().Equal(p.GetKey()) {
 		r.left = p.left
 
 		if r.left != nil {
