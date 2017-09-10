@@ -1,6 +1,7 @@
 package cdriver
 
 import (
+	"ddb/structs/mbbtree"
 	"ddb/structs/types"
 	"encoding/json"
 	"errors"
@@ -328,7 +329,6 @@ func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int)
 		if idx = t.GetIndexByCond(cond); idx != nil {
 			return idx.Find(cond, limit, offset), nil
 		}
-		//  @TODO FIND By columns
 	}
 
 	res = &DbResult{}
@@ -347,11 +347,67 @@ func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int)
 		limit = t.Columns.GetRowsCount() - offset
 	}
 
-	pos := make([]int, limit)
-	for i := 0; i < limit; i++ {
-		pos[i] = offset + i
-	}
-	res.SetPositions(pos)
+	if len(cond) > 0 {
+		psmap := map[int]int{}
 
-	return res, nil
+		j := 0
+
+		for i := 0; i < t.Columns.GetRowsCount(); i++ {
+			ok := true
+			for _, c := range cond {
+				col := t.Columns.ByName(c.Field)
+				var key mbbtree.Key
+				key = c.Value
+				switch c.Compartion {
+				case "=":
+					ok = ok && key.Equal(col.GetBytes(i))
+					break
+				case "<>":
+					ok = ok && !key.Equal(col.GetBytes(i))
+					break
+				case "!=":
+					ok = ok && !key.Equal(col.GetBytes(i))
+					break
+				case "<":
+					ok = ok && key.Greather(col.GetBytes(i))
+					break
+				case ">":
+					ok = ok && key.Less(col.GetBytes(i))
+					break
+				}
+				if !ok {
+					break
+				}
+			}
+
+			if ok {
+				j++
+				if j > offset && j <= offset + limit {
+					psmap[i] = i
+				}
+
+				if len(psmap) == limit {
+					break;
+				}
+			}
+		}
+
+		pos := make([]int, len(psmap))
+		i := 0
+		for p := range psmap {
+			pos[i] = p
+			i++
+		}
+		res.SetPositions(pos)
+
+		return res, nil
+	} else {
+		pos := make([]int, limit)
+		for i := 0; i < limit; i++ {
+			pos[i] = offset + i
+		}
+		res.SetPositions(pos)
+
+		return res, nil
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"ddb/structs/types"
+	"fmt"
 )
 
 type ParseWhereCondFunc func(q string) (query string, whereCond types.WhereCond, result bool)
@@ -84,10 +85,11 @@ func ParseWhereCond(q string) (query string, whereCond types.WhereCond, result b
 		return query, whereCond, result
 	}
 
-	recompare := regexp.MustCompile(`^(?i)\s*(<|>|=|\s*in\s*)\s*`)
+	recompare := regexp.MustCompile(`^(?i)\s*(<>|\<|\>|=|!=|\s*in\s*){1}\s*`)
 
 	if recompare.MatchString(q) {
 		whereCond.Compartion = strings.Trim(recompare.FindString(q), " ")
+		fmt.Println("parse compartion : ",whereCond.Compartion)
 		q = string(recompare.ReplaceAll([]byte(q), []byte{}))
 	} else {
 		return query, whereCond, false

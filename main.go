@@ -39,7 +39,7 @@ func CreateTable() {
 	fmt.Println("Rows count:", table.Columns.GetRowsCount())
 
 	t = time.Now()
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 1000000; i++ {
 		table.Insert(u{Id: int64(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]})
 	}
 	fmt.Println("Inserted", table.MaxId, "rows in table ", time.Now().Sub(t))
