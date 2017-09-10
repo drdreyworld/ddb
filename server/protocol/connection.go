@@ -1,6 +1,8 @@
-package server
+package protocol
 
 import (
+	"ddb/sql"
+	"fmt"
 	"net"
 )
 
@@ -51,45 +53,54 @@ func (c *Connection) Handle() {
 		p := Packet{}
 
 		if err = p.readBytes(c); err != nil {
-			c.listener.Println("read bytes error: ", err)
 			return
 		}
 
-		c.listener.Println("read bytes from client:")
-		c.listener.Println(p.data)
+		q := p.readQuery()
 
-		query := p.readQuery()
+		parser := sql.Parser{}
+		query := parser.Parse(q)
 
-		c.listener.Println("query:", query)
-
-		switch query {
-		case "select @@version_comment limit 1":
+		if query == nil {
 			c.sequence = p.readSequence()
-			c.writeRowset(Rowset{
-				Cols:[]Col{
-					{Name:"@@version_comment"},
-				},
-				Rows:[]Row{
-					{[]string{"DDB SQL Server v0.1"}},
-				},
-			})
-			break
-		case "select 'aaa'":
-			c.sequence = p.readSequence()
-			c.writeRowset(Rowset{
-				Cols:[]Col{
-					{Name:"aaa"},
-				},
-				Rows:[]Row{
-					{[]string{"aaa"}},
-				},
-			})
-			break
+			c.writeError(1064, "Can't parse SQL query")
+		} else {
+			if res, err := query.Execute(); err != nil {
+				c.sequence = p.readSequence()
+				c.writeError(1064, err.Error())
+			} else {
+				rows := Rowset{}
 
-		case "select * from users":
-			c.sequence = p.readSequence()
-			c.writeRowset(CreateUsersRowset())
-			break
+				for _, col := range query.Columns {
+					rows.Cols = append(rows.Cols, Col{
+						Name:   col.Value,
+						Length: 255,
+						Type:   fieldTypeVarChar,
+					})
+				}
+
+				if res != nil {
+					for {
+						if row, err := res.FetchMap(); err != nil {
+							if err.Error() != "EOF" {
+								fmt.Println("Fetch row Error:", err)
+							}
+							break
+						} else {
+							cells := []string{}
+
+							for _, col := range query.Columns {
+								cells = append(cells, row[col.Value])
+							}
+
+							rows.Rows = append(rows.Rows, Row{cells: cells})
+						}
+					}
+				}
+
+				c.sequence = p.readSequence()
+				c.writeRowset(rows)
+			}
 		}
 	}
 }
@@ -135,8 +146,6 @@ func (c *Connection) writeInitialPacket() {
 	p.calcucateLength()
 
 	c.connection.Write(p.data)
-	c.listener.Println("initial packet to client")
-	c.listener.Println(p.data)
 }
 
 func (c *Connection) readAuthPacket() (err error) {
@@ -145,9 +154,6 @@ func (c *Connection) readAuthPacket() (err error) {
 	if err = p.readBytes(c); err != nil {
 		return err
 	}
-
-	c.listener.Println("read auth packet from client")
-	c.listener.Println(p.data)
 
 	ap := authPacket{
 		length:          p.readLength(),
@@ -177,7 +183,7 @@ func (c *Connection) writeRowset(rowset Rowset) {
 	for i := range rowset.Cols {
 		col := rowset.Cols[i]
 		p.data = []byte{0, 0, 0, c.nextSequence()}
-		p.appendBytes(0, 0, 0 ,0)
+		p.appendBytes(0, 0, 0, 0)
 		//p.appendStringLengthEncoded("def")
 		//p.appendStringLengthEncoded("schema")
 		//p.appendStringLengthEncoded("users")
@@ -186,7 +192,6 @@ func (c *Connection) writeRowset(rowset Rowset) {
 		p.appendBytes(0, 12, 33, 0, 9, 0, 0, 0, 253, 1, 0, 31, 0, 0)
 		p.calcucateLength()
 		c.connection.Write(p.data)
-		c.listener.Println(p.data)
 	}
 
 	for i := range rowset.Rows {
@@ -196,10 +201,9 @@ func (c *Connection) writeRowset(rowset Rowset) {
 		}
 		p.calcucateLength()
 		c.connection.Write(p.data)
-		c.listener.Println(p.data)
 	}
 
-	c.status = c.status|statusLastRowSent
+	c.status = c.status | statusLastRowSent
 	c.writeEOF()
 }
 
@@ -222,6 +226,17 @@ func (c *Connection) writeCmdPacket(cmd byte) {
 
 	p.calcucateLength()
 	c.connection.Write(p.data)
-	c.listener.Println("write CMD",cmd,"packet to client")
-	c.listener.Println(p.data)
+}
+
+func (c *Connection) writeError(code int, err string) {
+	// @TODO Собрать ошибки mysql и использовать стандартные коды
+	// https://dev.mysql.com/doc/refman/5.5/en/error-messages-server.html
+	p := Packet{}
+	p.appendBytes(0, 0, 0, c.nextSequence(), iERR)
+	p.appendBytes(byte(code), byte(code>>8))
+	p.appendBytes(0x23)
+	p.appendBytes([]byte("42000")...)
+	p.appendStringNulByte(err)
+	p.calcucateLength()
+	c.connection.Write(p.data)
 }

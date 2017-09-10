@@ -10,10 +10,10 @@ import (
 const ERR_BYTES_TO_LONG = "Length of bytes more than length of column"
 
 func ValueToBytes(cell interface{}, length int) ([]byte, error) {
-	var buf bytes.Buffer
-
+	buf := bytes.Buffer{}
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(cell)
+
 	if err != nil {
 		return nil, err
 	}
@@ -31,9 +31,29 @@ func ValueToBytes(cell interface{}, length int) ([]byte, error) {
 }
 
 func ValueFromBytes(b []byte, v reflect.Value) error {
-	var buf bytes.Buffer
+	buf := bytes.Buffer{}
 	buf.Write(b)
 
 	dec := gob.NewDecoder(&buf)
 	return dec.DecodeValue(v)
+}
+
+func DecodeValue(b []byte, res interface{}) error {
+	buf := bytes.Buffer{}
+	buf.Write(b)
+
+	dec := gob.NewDecoder(&buf)
+	err := dec.Decode(res)
+
+	return err
+}
+
+func DecodeValueInt(b []byte) (res int, err error) {
+	err = DecodeValue(b, &res)
+	return res, err
+}
+
+func DecodeValueStr(b []byte) (res string, err error) {
+	err = DecodeValue(b, &res)
+	return res, err
 }

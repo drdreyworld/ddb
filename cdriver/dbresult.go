@@ -1,8 +1,10 @@
 package cdriver
 
 import (
-	"reflect"
 	"errors"
+	"reflect"
+	"strconv"
+	"fmt"
 )
 
 type DbResult struct {
@@ -16,14 +18,9 @@ func (r *DbResult) Init(t *Table) {
 	r.positions = []int{}
 }
 
-func (r *DbResult) SetPositions(p map[int]int) {
-	r.positions = make([]int, len(p))
+func (r *DbResult) SetPositions(p []int) {
 	r.current = 0
-	for position := range p {
-		r.positions[r.current] = position
-		r.current++
-	}
-	r.current = 0
+	r.positions = p
 }
 
 func (r *DbResult) GetRowsCount() int {
@@ -34,9 +31,9 @@ func (r *DbResult) Rewind() {
 	r.current = 0
 }
 
-func (r *DbResult) FetchRow(row interface{}) error {
+func (r *DbResult) FetchStruct(row interface{}) error {
 	if r.current >= len(r.positions) {
-		return nil
+		return errors.New("EOF")
 	}
 
 	res := r.table.Columns.GetRowByIndex(r.positions[r.current])
@@ -46,12 +43,48 @@ func (r *DbResult) FetchRow(row interface{}) error {
 		err := ValueFromBytes(val, ref.FieldByName(name))
 
 		if err != nil {
-			return errors.New("banana")
-			//return err
+			return err
 		}
 	}
 
 	r.current++
 
 	return nil
+}
+
+func (r *DbResult) FetchMap() (map[string]string, error) {
+	if r.current >= len(r.positions) {
+		return nil, errors.New("EOF")
+	}
+
+	res := r.table.Columns.GetRowByIndex(r.positions[r.current])
+	row := map[string]string{}
+
+	for name, value := range res {
+
+		switch r.table.Columns.ByName(name).Type {
+
+		case "int64":
+			if val, err := DecodeValueInt(value); err != nil {
+				return nil, err
+			} else {
+				row[name] = strconv.Itoa(val)
+			}
+			break
+
+		case "string":
+			if val, err := DecodeValueStr(value); err != nil {
+				return nil, err
+			} else {
+				row[name] = val
+			}
+			break
+		default:
+			return nil, errors.New(fmt.Sprintf("unsupported column type '%s'", r.table.Columns.ByName(name).Type))
+		}
+	}
+
+	r.current++
+
+	return row, nil
 }

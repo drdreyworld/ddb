@@ -1,4 +1,4 @@
-package server
+package protocol
 
 type Rowset struct {
 	Cols []Col

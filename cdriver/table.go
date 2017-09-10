@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"fmt"
 )
 
 type Table struct {
@@ -195,90 +196,7 @@ type FindFieldCond struct {
 	Value interface{}
 }
 
-/*
-func (t *Table) Find(field string, value interface{}, limit int) *[]int {
-	return t.FindByCond([]FindFieldCond{{Field: field, Value: value}}, limit)
-}
-*/
-//
-//func (t *Table) FindByCond(cond []FindFieldCond, limit int) (res *[]int) {
-//	cols := map[string]*Column{}
-//
-//	for i := range cond {
-//		if col := t.Columns.ByName(cond[i].Field); col == nil {
-//			panic("column not found by name " + cond[i].Field)
-//		} else {
-//			cols[col.Name] = col
-//
-//			b, err := ValueToBytes(cond[i].Value, col.Length)
-//			if err != nil {
-//				panic(err)
-//			}
-//
-//			cond[i].Bytes = b
-//		}
-//	}
-//
-//	i := 0
-//	for i = 0; i < t.MaxId; i++ {
-//		eq := true
-//		for j := 0; j < len(cond) && eq; j++ {
-//			eq = cols[cond[j].Field].values[i].Equal(cond[j].Bytes)
-//		}
-//
-//		if eq {
-//			*res = append(*res, i)
-//		}
-//
-//		if limit > 0 && len(*res) >= limit {
-//			break
-//		}
-//	}
-//
-//	return res
-//}
-
-/*
-func (t *Table) CountByCond(cond []FindFieldCond) int {
-	res := 0
-	cols := map[string]*Column{}
-
-	for i := range cond {
-		if col := t.Columns.ByName(cond[i].Field); col == nil {
-			panic("column not found by name " + cond[i].Field)
-		} else {
-			cols[col.Name] = col
-
-			b, err := ValueToBytes(cond[i].Value, col.Length)
-			if err != nil {
-				panic(err)
-			}
-
-			cond[i].Bytes = b
-		}
-	}
-
-	i := 0
-	s := time.Now()
-	for i = 0; i < t.MaxId; i++ {
-		eq := true
-		for j := 0; j < len(cond) && eq; j++ {
-			eq = cols[cond[j].Field].values[i].Equal(cond[j].Bytes)
-		}
-
-		if eq {
-			res++
-		}
-	}
-	log.Println("count by cond", cond)
-	log.Println("scan rows", i)
-	log.Println("time", time.Now().Sub(s))
-
-	return res
-}
-*/
-
-func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
+func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *Index) {
 	// количество столбцов в индексе
 	idxLen := len(cond)
 
@@ -304,7 +222,34 @@ func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
 	return idx
 }
 
-func (t *Table) FindCondToRow(cond []FindFieldCond) (row map[string][]byte) {
+func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *Index) {
+	for i := range t.Indexes {
+		idx = &t.Indexes[i]
+
+		for c := range cond {
+			if len(idx.Columns) <= c || idx.Columns[c] != cond[c].Field {
+				idx = nil
+				break
+			}
+		}
+
+		if idx != nil {
+			break
+		}
+	}
+
+	return idx
+}
+
+
+func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *Index) {
+	if idx = t.GetBestIndexByCond(cond); idx != nil {
+		return idx
+	}
+	return t.GetAnyIndexByCond(cond)
+}
+
+func (t *Table) convertCondToRow(cond []FindFieldCond) (row map[string][]byte) {
 	cols := map[string]*Column{}
 	row = map[string][]byte{}
 
@@ -325,13 +270,12 @@ func (t *Table) FindCondToRow(cond []FindFieldCond) (row map[string][]byte) {
 	return row
 }
 
-func (t *Table) FindByIndex(cond []FindFieldCond, limit int) (res *DbResult, err error) {
+func (t *Table) FindByIndex(cond []FindFieldCond, limit, offset int) (res *DbResult, err error) {
 	var idx *Index
 
 	if idx = t.GetIndexByCond(cond); idx == nil {
-		return nil, errors.New("Index not matched")
+		return nil, errors.New(fmt.Sprintf("Index not matched by cond %v", cond))
 	}
 
-	row := t.FindCondToRow(cond)
-	return idx.Find(row), nil
+	return idx.Find(t.convertCondToRow(cond), limit, offset), nil
 }

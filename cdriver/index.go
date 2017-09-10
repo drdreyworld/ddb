@@ -36,24 +36,40 @@ func (i *Index) Add(pos int, row map[string][]byte) {
 		key := i.GetCRC(row[column])
 
 		if item = tree.Find(key); item == nil {
-			// tree.Add(mbtree.NewData(int(key), map[int]int{pos:pos}))
-			tree.Add(mbtree.NewData(int(key), nil))
+			tree.Add(mbtree.NewData(int(key), []int{pos}))
 			item = tree.Find(key)
 			tree = item.GetSubTree()
 		} else {
+			if ps, ok := item.GetValue().([]int); ok {
+				if !posInSlice(pos, ps) {
+					ps = append(ps, pos)
+					item.SetValue(ps)
+				}
+			}
 			tree = item.GetSubTree()
 		}
 	}
 
-	if ps, ok := item.GetValue().(map[int]int); ok {
-		ps[pos] = pos
-		item.SetValue(ps)
+	if ps, ok := item.GetValue().([]int); ok {
+		if !posInSlice(pos, ps) {
+			ps = append(ps, pos)
+			item.SetValue(ps)
+		}
 	} else {
-		item.SetValue(map[int]int{pos: pos})
+		item.SetValue([]int{pos})
 	}
 }
 
-func (i *Index) Find(row map[string][]byte) (res *DbResult) {
+func posInSlice(pos int, ps []int) bool {
+	for _, v := range ps {
+		if v == pos {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *Index) Find(row map[string][]byte, limit, offset int) (res *DbResult) {
 	var item *mbtree.TItem
 	var tree *mbtree.BTree
 
@@ -61,23 +77,39 @@ func (i *Index) Find(row map[string][]byte) (res *DbResult) {
 	res.Init(i.table)
 
 	for _, column := range i.Columns {
-		key := i.GetCRC(row[column])
+		if val, ok := row[column]; ok {
+			key := i.GetCRC(val)
 
-		if item == nil {
-			tree = &i.tree
+			if item == nil {
+				tree = &i.tree
+			} else {
+				tree = item.GetSubTree()
+			}
+
+			if item = tree.Find(int(key)); item == nil {
+				return nil
+			}
 		} else {
-			tree = item.GetSubTree()
-		}
-
-		if item = tree.Find(int(key)); item == nil {
-			return nil
+			break
 		}
 	}
 
-	if ps, ok := item.GetValue().(map[int]int); ok {
-		res.SetPositions(ps)
+	if item == nil {
+		return nil
+	}
+
+	if ps, ok := item.GetValue().([]int); ok {
+		if offset < len(ps) {
+			if limit > len(ps)-offset {
+				limit = len(ps) - offset
+			}
+			ps = ps[offset : offset+limit]
+			res.SetPositions(ps)
+		} else {
+			res.SetPositions([]int{})
+		}
 	} else {
-		panic("Can't convert data to map[int]int")
+		panic("Can't convert index data to []int")
 	}
 	return res
 }
