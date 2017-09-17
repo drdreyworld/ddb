@@ -18,16 +18,18 @@
             "name"   : "Id",
             "title"  : "User ID",
             "length" : 8,
-            "type"   : "int64"
+            "type"   : "int32"
         }
     ],
     "indexes" : [
         {
             "name"    : "UserName",
+            "type"    : "mbbtree",
             "columns" : ["FName", "LName"]
         },
         {
             "name"    : "UserId",
+            "type"    : "mbbtree",
             "columns" : ["Id"]
         }
     ],

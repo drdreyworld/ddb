@@ -1,20 +1,15 @@
 package qselect
 
-import "ddb/structs/types"
+import (
+	"ddb/structs/types"
+)
 
-type Order []OrderExpr
-
-type OrderExpr struct {
-	Column    string
-	Direction string
-}
-
-func ParseOrder(q string) (query string, order Order, result bool) {
+func ParseOrder(q string) (query string, order types.Order, result bool) {
 	if _, q, result = parseByRegexp(reorder, q); !result {
 		return q, nil, result
 	}
 
-	order = Order{}
+	order = types.Order{}
 
 	funcs := []ParseColumnFunc{
 		ParseColumnCol,
@@ -43,12 +38,12 @@ func ParseOrder(q string) (query string, order Order, result bool) {
 				direction := reorderdir.FindString(q)
 				q = string(reorderdir.ReplaceAll([]byte(q), []byte{}))
 
-				order = append(order, OrderExpr{
+				order = append(order, types.OrderExpr{
 					Column:    c.Value,
 					Direction: string(direction),
 				})
 			} else {
-				order = append(order, OrderExpr{
+				order = append(order, types.OrderExpr{
 					Column:    c.Value,
 					Direction: "ASC",
 				})

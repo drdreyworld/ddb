@@ -11,8 +11,8 @@ type Select struct {
 	Columns types.Columns
 	From    From
 	Where   types.Where
-	Order   Order
-	Limit   Limit
+	Order   types.Order
+	Limit   types.Limit
 }
 
 func CreateSelectFromString(q string) *Select {
@@ -65,8 +65,8 @@ func (s *Select) Execute() (rows *types.Rowset, err error) {
 	res, err = table.Select(
 		s.Columns,
 		s.Where,
-		s.Limit.RowCount,
-		s.Limit.Offset,
+		s.Order,
+		s.Limit,
 	);
 
 	if err != nil {

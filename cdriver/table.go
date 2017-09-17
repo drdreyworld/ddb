@@ -5,18 +5,25 @@ import (
 	"ddb/structs/types"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 type Table struct {
-	Name    string     `json:"name"`
-	Columns Columns    `json:"columns"`
-	MaxId   int        `json:"max_id"`
-	Indexes []IndexStr `json:"indexes"`
+	Name    string  `json:"name"`
+	Columns Columns `json:"columns"`
+	MaxId   int     `json:"max_id"`
+
+	IndexesConf []types.IndexConfig `json:"indexes"`
+	Indexes     []types.Index
+
+	IndexType string
+	Index     types.Index
 }
 
 func OpenTable(name string) (t *Table, err error) {
@@ -34,6 +41,16 @@ func OpenTable(name string) (t *Table, err error) {
 		return nil, err
 	}
 
+	t.IndexType = "mbbtree"
+
+	switch t.IndexType {
+	case "mbbtree":
+		t.Index = &mbbtree.Index{}
+		break
+	default:
+		panic("Unknown index type" + t.IndexType)
+	}
+
 	t.buildIndexes()
 
 	return t, err
@@ -44,7 +61,6 @@ func CreateTable(name string, columns []Column) (*Table, error) {
 	t.Name = name
 	t.Columns = columns
 
-	t.initIndexes()
 	t.Columns.Init(t)
 
 	if res, err := t.isTableFileExists(); err != nil {
@@ -56,18 +72,26 @@ func CreateTable(name string, columns []Column) (*Table, error) {
 }
 
 func (t *Table) initIndexes() {
-	for i := range t.Indexes {
-		t.Indexes[i].Init(t)
+	for _, i := range t.IndexesConf {
+		var index types.Index
+		switch i.Type {
+		case "mbbtree":
+			index = &mbbtree.Index{}
+			break
+		default:
+			panic("Unknown index type" + i.Type)
+			break
+		}
+
+		index.SetColumns(i.Columns)
+
+		t.Indexes = append(t.Indexes, index)
 	}
 }
 
 func (t *Table) buildIndexes() {
-	for i := 0; i < t.Columns.GetRowsCount(); i++ {
-		row := t.Columns.GetRowByIndex(i)
-		for j := range t.Indexes {
-			idx := &t.Indexes[j]
-			idx.Add(i, row)
-		}
+	for i := 0; i < len(t.Indexes); i++ {
+		t.Indexes[i] = t.Indexes[i].BuildIndex(&t.Columns, types.CompareConditions{}, types.Order{})
 	}
 }
 
@@ -107,27 +131,15 @@ func (t *Table) Insert(data interface{}) (err error) {
 	rowid := t.MaxId
 	t.MaxId++
 
-	for i := range t.Indexes {
-		idx := &t.Indexes[i]
-		idx.Add(rowid, row)
-	}
+	//for i := range t.Indexes {
+	//idx := &t.Indexes[i]
+	//idx.Add(rowid, row)
+	//}
 
 	for i := range t.Columns {
 		col := &t.Columns[i]
 		// @todo required attribute in column
 		col.SetBytes(rowid, row[col.Name])
-	}
-	return nil
-}
-
-func (t *Table) GetByIndex(index int, row interface{}) error {
-	for i := range t.Columns {
-		col := &t.Columns[i]
-		cel := col.GetBytes(index)
-		err := ValueFromBytes(cel, reflect.ValueOf(row).Elem().FieldByName(col.Name))
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -193,65 +205,7 @@ func (t *Table) loadTableInfo() (err error) {
 	return json.Unmarshal(data, t)
 }
 
-type FindFieldCond struct {
-	Field      string
-	Value      []byte
-	Compartion string
-}
-
-func (t *Table) GetBestIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
-	// количество столбцов в индексе
-	idxLen := len(cond)
-
-	for i := range t.Indexes {
-		idx = &t.Indexes[i]
-		if len(idx.Columns) != idxLen {
-			idx = nil
-			continue
-		}
-
-		for c := range cond {
-			if idx.Columns[c] != cond[c].Field {
-				idx = nil
-				break
-			}
-		}
-
-		if idx != nil {
-			break
-		}
-	}
-
-	return idx
-}
-
-func (t *Table) GetAnyIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
-	for i := range t.Indexes {
-		idx = &t.Indexes[i]
-
-		for c := range cond {
-			if len(idx.Columns) <= c || idx.Columns[c] != cond[c].Field {
-				idx = nil
-				break
-			}
-		}
-
-		if idx != nil {
-			break
-		}
-	}
-
-	return idx
-}
-
-func (t *Table) GetIndexByCond(cond []FindFieldCond) (idx *IndexStr) {
-	if idx = t.GetBestIndexByCond(cond); idx != nil {
-		return idx
-	}
-	return t.GetAnyIndexByCond(cond)
-}
-
-func (t *Table) convertCondToRow(cond []FindFieldCond) (row map[string][]byte) {
+func (t *Table) convertCondToRow(cond []types.CompareCondition) (row map[string][]byte) {
 	row = map[string][]byte{}
 
 	for c := range cond {
@@ -269,8 +223,8 @@ func (t *Table) convertCondToRow(cond []FindFieldCond) (row map[string][]byte) {
 	return row
 }
 
-func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err error) {
-	res = []FindFieldCond{}
+func (t *Table) CreateFindCond(where types.Where) (res []types.CompareCondition, err error) {
+	res = []types.CompareCondition{}
 	for i := range where {
 		c := t.Columns.ByName(where[i].OperandA)
 		if c == nil {
@@ -279,7 +233,7 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 
 		switch c.Type {
 
-		case "int64":
+		case "int32":
 			val, err := strconv.Atoi(where[i].OperandB)
 			if err != nil {
 				return nil, err
@@ -290,7 +244,7 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 				return nil, err
 			}
 
-			res = append(res, FindFieldCond{
+			res = append(res, types.CompareCondition{
 				Field:      where[i].OperandA,
 				Value:      ival,
 				Compartion: where[i].Compartion,
@@ -303,7 +257,7 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 				return nil, err
 			}
 
-			res = append(res, FindFieldCond{
+			res = append(res, types.CompareCondition{
 				Field:      where[i].OperandA,
 				Value:      sval,
 				Compartion: where[i].Compartion,
@@ -317,97 +271,146 @@ func (t *Table) CreateFindCond(where types.Where) (res []FindFieldCond, err erro
 	return res, nil
 }
 
-func (t *Table) Select(cols types.Columns, where types.Where, limit, offset int) (res *DbResult, err error) {
-	var idx *IndexStr
-	var cond []FindFieldCond
+func (t *Table) GetIndex(cond types.CompareConditions, order types.Order) types.Index {
+	columnsMap := map[string]bool{}
+
+	for i := range cond {
+		columnsMap[cond[i].Field] = true
+	}
+
+	for i := range order {
+		columnsMap[order[i].Column] = true
+	}
+
+	for _, index := range t.Indexes {
+		if ok := len(columnsMap) == len(index.GetColumns()); ok {
+			for _, column := range index.GetColumns() {
+				if _, ok = columnsMap[column]; !ok {
+					break;
+				}
+			}
+
+			if ok {
+				return index
+			}
+		}
+	}
+	return nil
+}
+
+func (t *Table) Select(cols types.Columns, where types.Where, order types.Order, limit types.Limit) (res *DbResult, err error) {
+	limit.PrepareLimit(t.Columns.GetRowsCount())
+
+	var cond types.CompareConditions
+	var whereCallback types.WhereCallback
 
 	if cond, err = t.CreateFindCond(where); err != nil {
 		return nil, err
 	}
 
-	if len(cond) > 0 {
-		if idx = t.GetIndexByCond(cond); idx != nil {
-			return idx.Find(cond, limit, offset), nil
+	ordersColumns := map[string]string{}
+
+	for i := range order {
+		ordersColumns[order[i].Column] = order[i].Direction
+	}
+
+	var idx types.Index
+
+	if idx = t.GetIndex(cond, order); idx == nil {
+		if len(ordersColumns) == 0 {
+			fmt.Println("Search without index")
+			return t.SearchWithoutIndex(cols, cond, limit)
+		} else {
+			fmt.Println("Build index")
+			idx = t.Index.BuildIndex(&t.Columns, cond, order)
+			whereCallback = nil
+		}
+	} else {
+		fmt.Println("Use index")
+		conds := map[string]types.CompareConditions{}
+		for _, column := range idx.GetColumns() {
+			conds[column] = cond.ByColumnName(column)
+		}
+
+		whereCallback = func(column string, value []byte) bool {
+			result := true
+			for _, cnd := range conds[column] {
+				if result = result && cnd.Compare(value); !result {
+					return result
+				}
+			}
+			return result
+		}
+	}
+
+	for _, columnName := range idx.GetColumns() {
+		if _, ok := ordersColumns[columnName]; !ok {
+			ordersColumns[columnName] = "ASC"
+		}
+	}
+
+	positions := make([]int, 0, limit.RowCount)
+
+	st := time.Now()
+	fmt.Println("Traverse index: ")
+	idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
+		for i := range pos {
+			positions = append(positions, pos[i])
+
+			if len(positions) >= limit.RowCount {
+				return false
+			}
+		}
+
+		return true
+	})
+	fmt.Println(" complete:", time.Now().Sub(st))
+
+	res = &DbResult{}
+	res.Init(t)
+	res.SetPositions(positions)
+	return res, nil
+}
+
+func (t *Table) SearchWithoutIndex(cols types.Columns, cond types.CompareConditions, limit types.Limit) (res *DbResult, err error) {
+
+	conds := map[string]types.CompareConditions{}
+
+	for _, column := range t.Columns.GetColumns() {
+		conds[column] = cond.ByColumnName(column)
+	}
+
+	positions := []int{}
+	j := 0
+
+	for i := 0; i < t.Columns.GetRowsCount(); i++ {
+		matched := true
+
+		for ci := range t.Columns {
+			column := &t.Columns[ci]
+			for _, columnCond := range conds[column.Name] {
+				if matched = columnCond.Compare(t.Columns.GetBytes(i, column.Name)); !matched {
+					break;
+				}
+			}
+			if !matched {
+				break;
+			}
+		}
+
+		if matched {
+			if j >= limit.Offset {
+				positions = append(positions, i)
+			}
+			j++
+			if j >= limit.RowCount {
+				break;
+			}
 		}
 	}
 
 	res = &DbResult{}
 	res.Init(t)
-
-	if limit == 0 && offset == 0 {
-		limit = t.Columns.GetRowsCount()
-	}
-
-	if offset >= t.Columns.GetRowsCount() {
-		offset = t.Columns.GetRowsCount() - 1
-		limit = 0
-	}
-
-	if limit > t.Columns.GetRowsCount()-offset {
-		limit = t.Columns.GetRowsCount() - offset
-	}
-
-	if len(cond) > 0 {
-		psmap := map[int]int{}
-
-		j := 0
-
-		for i := 0; i < t.Columns.GetRowsCount(); i++ {
-			ok := true
-			for _, c := range cond {
-				col := t.Columns.ByName(c.Field)
-				var key mbbtree.Key
-				key = c.Value
-				switch c.Compartion {
-				case "=":
-					ok = ok && key.Equal(col.GetBytes(i))
-					break
-				case "<>":
-					ok = ok && !key.Equal(col.GetBytes(i))
-					break
-				case "!=":
-					ok = ok && !key.Equal(col.GetBytes(i))
-					break
-				case "<":
-					ok = ok && key.Greather(col.GetBytes(i))
-					break
-				case ">":
-					ok = ok && key.Less(col.GetBytes(i))
-					break
-				}
-				if !ok {
-					break
-				}
-			}
-
-			if ok {
-				j++
-				if j > offset && j <= offset + limit {
-					psmap[i] = i
-				}
-
-				if len(psmap) == limit {
-					break;
-				}
-			}
-		}
-
-		pos := make([]int, len(psmap))
-		i := 0
-		for p := range psmap {
-			pos[i] = p
-			i++
-		}
-		res.SetPositions(pos)
-
-		return res, nil
-	} else {
-		pos := make([]int, limit)
-		for i := 0; i < limit; i++ {
-			pos[i] = offset + i
-		}
-		res.SetPositions(pos)
-
-		return res, nil
-	}
+	res.SetPositions(positions)
+	return res, nil
 }

@@ -1,13 +1,11 @@
 package qselect
 
-import "strconv"
+import (
+	"strconv"
+	"ddb/structs/types"
+)
 
-type Limit struct {
-	Offset   int
-	RowCount int
-}
-
-func ParseLimit(q string) (query string, limit Limit, result bool) {
+func ParseLimit(q string) (query string, limit types.Limit, result bool) {
 
 	if result = relimit.MatchString(q); result {
 

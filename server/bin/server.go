@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"os"
+	_ "net/http/pprof"
+	"net/http"
 )
 
 var err error
@@ -19,6 +21,10 @@ var (
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	listener := server.Listener{Host: *Host, Port: *Port}
 	listener.HandleFunc = func(conn net.Conn) {

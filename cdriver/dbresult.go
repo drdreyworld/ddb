@@ -2,7 +2,6 @@ package cdriver
 
 import (
 	"errors"
-	"reflect"
 	"strconv"
 	"fmt"
 )
@@ -30,27 +29,27 @@ func (r *DbResult) GetRowsCount() int {
 func (r *DbResult) Rewind() {
 	r.current = 0
 }
-
-func (r *DbResult) FetchStruct(row interface{}) error {
-	if r.current >= len(r.positions) {
-		return errors.New("EOF")
-	}
-
-	res := r.table.Columns.GetRowByIndex(r.positions[r.current])
-	ref := reflect.ValueOf(row).Elem()
-
-	for name, val := range res {
-		err := ValueFromBytes(val, ref.FieldByName(name))
-
-		if err != nil {
-			return err
-		}
-	}
-
-	r.current++
-
-	return nil
-}
+//
+//func (r *DbResult) FetchStruct(row interface{}) error {
+//	if r.current >= len(r.positions) {
+//		return errors.New("EOF")
+//	}
+//
+//	res := r.table.Columns.GetRowByIndex(r.positions[r.current])
+//	ref := reflect.ValueOf(row).Elem()
+//
+//	for name, val := range res {
+//		err := ValueFromBytes(val, ref.FieldByName(name))
+//
+//		if err != nil {
+//			return err
+//		}
+//	}
+//
+//	r.current++
+//
+//	return nil
+//}
 
 func (r *DbResult) FetchMap() (map[string]string, error) {
 	if r.current >= len(r.positions) {
@@ -64,7 +63,7 @@ func (r *DbResult) FetchMap() (map[string]string, error) {
 
 		switch r.table.Columns.ByName(name).Type {
 
-		case "int64":
+		case "int32":
 			if val, err := DecodeValueInt(value); err != nil {
 				return nil, err
 			} else {

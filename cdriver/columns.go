@@ -35,6 +35,14 @@ func (c *Columns) ByName(name string) *Column {
 	return nil
 }
 
+func (c *Columns) GetColumns()[]string {
+	result := []string{}
+	for _, column := range (*c) {
+		result = append(result, column.Name)
+	}
+	return result
+}
+
 func (c *Columns) GetRowsCount() int {
 	return len((*c)[0].bytes) / (*c)[0].Length
 }
@@ -46,3 +54,16 @@ func (c *Columns) GetRowByIndex(index int) map[string][]byte {
 	}
 	return res
 }
+
+func (c *Columns) GetValue(position int, column string) interface{} {
+	return c.ByName(column).GetValue(position)
+}
+
+func (c *Columns) GetBytes(position int, column string) []byte {
+	return c.ByName(column).GetBytes(position)
+}
+
+func (c *Columns) SetBytes(position int, column string, value []byte) {
+	c.ByName(column).SetBytes(position, value)
+}
+

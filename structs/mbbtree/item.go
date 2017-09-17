@@ -41,6 +41,9 @@ func (k Key) Compare(key Key) (r int) {
 
 	var a, b byte
 
+	// 0 - length
+	// 1 - type
+
 	for i := 0; i < l; i++ {
 		if i >= lk {
 			a = 0
@@ -162,6 +165,26 @@ func (i *TItem) InfixTraverse(fn func(i *TItem) bool) bool {
 
 	if i.right != nil {
 		if !i.right.InfixTraverse(fn) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (i *TItem) PostfixTraverse(fn func(i *TItem) bool) bool {
+	if i.right != nil {
+		if !i.right.PostfixTraverse(fn) {
+			return false
+		}
+	}
+
+	if !fn(i) {
+		return false
+	}
+
+	if i.left != nil {
+		if !i.left.PostfixTraverse(fn) {
 			return false
 		}
 	}

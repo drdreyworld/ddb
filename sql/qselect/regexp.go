@@ -38,7 +38,7 @@ func init() {
 	reandor = regexp.MustCompile(`^(?i)(\s*(and|or)\s+)`)
 	reenum = regexp.MustCompile(`^(?i)(\s*\((.*?)(,.*?){0,}\)\s*)`)
 	reorder = regexp.MustCompile(`^(?i)(\s*order\s+by\s+)`)
-	reorderdir = regexp.MustCompile(`^(?i)(\s*(ASC|DESC)\s+)`)
+	reorderdir = regexp.MustCompile(`^(?i)(\s*(ASC|DESC))`)
 	relimit = regexp.MustCompile(`^(?i)(\s*limit\s+(\d+)(?:,\s*(\d+)){0,1}\s*)`)
 }
 

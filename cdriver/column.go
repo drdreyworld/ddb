@@ -2,6 +2,7 @@ package cdriver
 
 import (
 	"os"
+	"ddb/structs/funcs"
 )
 
 type Column struct {
@@ -42,6 +43,18 @@ func (c *Column) SetBytes(index int, value []byte) {
 
 func (c *Column) GetBytes(index int) ([]byte) {
 	return c.bytes[index*c.Length : (index+1)*c.Length]
+}
+
+func (c *Column) GetValue(index int) interface{} {
+	switch (c.Type) {
+	case "string":
+		return funcs.StringFromNullByte(c.GetBytes(index))
+		break;
+	case "int32":
+		return funcs.Int32FromBytes(c.GetBytes(index))
+		break;
+	}
+	return nil
 }
 
 func (c *Column) Load() error {

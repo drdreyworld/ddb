@@ -14,7 +14,7 @@ func panicIfError(err error) {
 }
 
 type u struct {
-	Id    int64  `column:"Id"`
+	Id    int32  `column:"Id"`
 	FName string `column:"FName"`
 	LName string `column:"LName"`
 }
@@ -39,8 +39,8 @@ func main() {
 	fmt.Println("Rows count:", table.Columns.GetRowsCount())
 
 	t = time.Now()
-	for i := 0; i < 1000000; i++ {
-		table.Insert(u{Id: int64(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]})
+	for i := 0; i < 3000000; i++ {
+		table.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]})
 	}
 	fmt.Println("Inserted", table.MaxId, "rows in table ", time.Now().Sub(t))
 
