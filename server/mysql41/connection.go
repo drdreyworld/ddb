@@ -2,7 +2,9 @@ package mysql41
 
 import (
 	"net"
-	"ddb/structs/types"
+	"ddb/types/queryparser"
+	"ddb/types/queryprocessor"
+	"ddb/types/rowset"
 )
 
 type Connection struct {
@@ -39,7 +41,7 @@ func (c *Connection) resetConnStatus() {
 	c.warningsCount = 0
 }
 
-func (c *Connection) Handle(parser types.QueryParser) {
+func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocessor.QueryProcessor) {
 	c.resetConnStatus()
 	c.writeInitialPacket()
 
@@ -69,7 +71,8 @@ func (c *Connection) Handle(parser types.QueryParser) {
 			continue
 		}
 
-		rows, err := query.Execute()
+		rows, err := processor.Execute(query)
+		// rows, err := query.Execute()
 		if err != nil {
 			c.sequence = p.readSequence()
 			c.writeError(1064, "Execution error: " + err.Error())
@@ -160,7 +163,7 @@ func (c *Connection) readAuthPacket() (err error) {
 	return nil
 }
 
-func (c *Connection) writeRowset(rowset types.Rowset) {
+func (c *Connection) writeRowset(rowset rowset.Rowset) {
 	c.resetSequence()
 	p := Packet{}
 

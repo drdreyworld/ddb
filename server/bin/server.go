@@ -3,13 +3,14 @@ package main
 import (
 	"ddb/server"
 	"ddb/server/mysql41"
-	"ddb/sql"
 	"flag"
 	"log"
 	"net"
 	"os"
 	_ "net/http/pprof"
 	"net/http"
+	"ddb/types/queryprocessor"
+	"ddb/types/queryparser"
 )
 
 var err error
@@ -28,7 +29,7 @@ func main() {
 
 	listener := server.Listener{Host: *Host, Port: *Port}
 	listener.HandleFunc = func(conn net.Conn) {
-		mysql41.NewConnection(conn).Handle(&sql.Parser{})
+		mysql41.NewConnection(conn).Handle(&queryparser.Parser{}, &queryprocessor.QueryProcessor{})
 	}
 
 	if err = listener.Listen(); err != nil {
