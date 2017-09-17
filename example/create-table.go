@@ -1,10 +1,13 @@
 package main
 
 import (
-	"ddb/cdriver"
 	"fmt"
 	"math/rand"
 	"time"
+	"ddb/types/table"
+	_ "net/http/pprof"
+	"log"
+	"net/http"
 )
 
 func panicIfError(err error) {
@@ -19,7 +22,7 @@ type u struct {
 	LName string `column:"LName"`
 }
 
-var table *cdriver.Table
+var tab *table.Table
 var err error
 var t time.Time
 var FNames []string
@@ -31,20 +34,27 @@ func init() {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	t = time.Now()
-	table, err = cdriver.OpenTable("Users")
+	tab, err = table.OpenTable("Users2")
 	panicIfError(err)
 
-	fmt.Println("Table opened:", table.Name, time.Now().Sub(t))
-	fmt.Println("Rows count:", table.Columns.GetRowsCount())
-
 	t = time.Now()
-	for i := 0; i < 3000000; i++ {
-		table.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]})
+	i := 0
+	t = time.Now()
+	for i = 0; i < 3000000; i++ {
+		tab.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]}, false)
 	}
-	fmt.Println("Inserted", table.MaxId, "rows in table ", time.Now().Sub(t))
+	fmt.Println("Inserted", i, "rows in table ", time.Now().Sub(t))
 
 	t = time.Now()
-	table.Columns.Save()
-	fmt.Println("Saved", table.MaxId, "rows ", time.Now().Sub(t))
+	tab.ReBuildIndexes()
+	fmt.Println("Build indexes", i, "rows in table ", time.Now().Sub(t))
+
+	t = time.Now()
+	tab.Save()
+	fmt.Println("Saved", "rows ", time.Now().Sub(t))
 }

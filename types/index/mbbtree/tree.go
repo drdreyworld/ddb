@@ -21,7 +21,8 @@ func (t *BTree) Add(data Data) bool {
 
 	var cmp int
 	for {
-		cmp = p.GetKey().Compare(data.key)
+		//cmp = p.GetKey().Compare(data.key)
+		cmp = p.data.key.Compare(&data.key)
 
 		if cmp == CMP_KEY_EQUAL {
 			p.data = &data
@@ -51,7 +52,7 @@ func (t *BTree) Add(data Data) bool {
 	return false
 }
 
-func (t *BTree) Find(key Key) *TItem {
+func (t *BTree) Find(key *Key) *TItem {
 	if t.root == nil {
 		return nil
 	}
@@ -60,7 +61,8 @@ func (t *BTree) Find(key Key) *TItem {
 
 	for p := t.root; p != nil; {
 
-		cmp = p.GetKey().Compare(key)
+		//cmp = p.GetKey().Compare(key)
+		cmp = p.data.key.Compare(key)
 
 		if cmp == CMP_KEY_EQUAL {
 			return p
@@ -84,7 +86,7 @@ func (t *BTree) FindLess(key Key) []*TItem {
 	result := []*TItem{}
 
 	t.root.InfixTraverse(func(i *TItem) (r bool) {
-		if r = i.GetKey().Less(key); r {
+		if r = i.GetKey().Less(&key); r {
 			result = append(result, i)
 		}
 		return true
@@ -101,7 +103,7 @@ func (t *BTree) FindGreather(key Key) []*TItem {
 	result := []*TItem{}
 
 	t.root.InfixTraverse(func(i *TItem) (r bool) {
-		if r = i.GetKey().Greather(key); r {
+		if r = i.GetKey().Greather(&key); r {
 			result = append(result, i)
 		}
 		return true
@@ -110,7 +112,7 @@ func (t *BTree) FindGreather(key Key) []*TItem {
 	return result
 }
 
-func (t *BTree) Delete(key Key) bool {
+func (t *BTree) Delete(key *Key) bool {
 	p := t.Find(key)
 
 	if p == nil {
@@ -163,7 +165,7 @@ func (t *BTree) Delete(key Key) bool {
 
 	r := p.right.Min()
 
-	if r.parent.GetKey().Equal(p.GetKey()) {
+	if r.parent.GetKey().Equal(&p.data.key) {
 		r.left = p.left
 
 		if r.left != nil {

@@ -32,3 +32,15 @@ type WhereCallback func(column string, value []byte) bool
 type TraverseCallback func(positions []int) bool
 
 type Indexes []Index
+
+func (i *Indexes) Load() {
+	for ii := range (*i) {
+		(*i)[ii].Load()
+	}
+}
+
+func (i *Indexes) Save() {
+	for ii := range (*i) {
+		(*i)[ii].Save()
+	}
+}

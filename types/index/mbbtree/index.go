@@ -3,13 +3,13 @@ package mbbtree
 import (
 	"bufio"
 	"ddb/types"
+	"ddb/types/funcs"
 	"ddb/types/query"
 	"ddb/types/storage"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
-	"ddb/types/funcs"
 )
 
 type Index struct {
@@ -38,11 +38,11 @@ func (i *Index) Add(position int, columnsKeys map[string]interface{}) {
 	tree := &i.tree
 
 	for _, column := range i.Columns {
-		key := columnsKeys[column].([]byte)
+		key := Key(columnsKeys[column].([]byte))
 
-		if item = tree.Find(key); item == nil {
+		if item = tree.Find(&key); item == nil {
 			tree.Add(NewData(key, nil))
-			item = tree.Find(key)
+			item = tree.Find(&key)
 			tree = item.GetSubTree()
 		} else {
 			tree = item.GetSubTree()
@@ -65,11 +65,11 @@ func (i *Index) Set(positions []int, columnsKeys map[string]interface{}) {
 	tree := &i.tree
 
 	for _, column := range i.Columns {
-		key := columnsKeys[column].([]byte)
+		key := Key(columnsKeys[column].([]byte))
 
-		if item = tree.Find(key); item == nil {
+		if item = tree.Find(&key); item == nil {
 			tree.Add(NewData(key, nil))
-			item = tree.Find(key)
+			item = tree.Find(&key)
 			tree = item.GetSubTree()
 		} else {
 			tree = item.GetSubTree()
@@ -292,21 +292,21 @@ func (i *Index) Load() error {
 
 		for j := 0; j < len(i.Columns); j++ {
 
-			l := int(funcs.Int32FromBytes(bytes[p:p+5]))
+			l := int(funcs.Int32FromBytes(bytes[p : p+5]))
 			p += 5
 
-			row[i.Columns[j]] = bytes[p:p+l]
+			row[i.Columns[j]] = bytes[p : p+l]
 			p += l
 
 			//fmt.Println("column", j, ",", i.Columns[j], ":", funcs.StringFromNullByte(row[i.Columns[j]].([]byte)))
 		}
-		l := int(funcs.Int32FromBytes(bytes[p:p+5]))
-		p+=5
+		l := int(funcs.Int32FromBytes(bytes[p : p+5]))
+		p += 5
 		//positions := make([]int, l)
 		positions := []int{}
 		for k := 0; k < l; k++ {
 			positions = append(positions, int(funcs.Int32FromBytes(bytes[p:p+5])))
-			p+=5
+			p += 5
 		}
 		i.Set(positions, row)
 	}

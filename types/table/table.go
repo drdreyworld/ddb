@@ -82,6 +82,22 @@ func CreateTable(name string, config config.TableConfig) (*Table, error) {
 	return t, nil
 }
 
+func (t *Table) Save() {
+	if err := t.saveTableInfo(); err != nil {
+		panic(err)
+	}
+
+	if err := t.storage.Save(); err != nil {
+		panic(err)
+	}
+
+	t.indexes.Save()
+}
+
+func (t *Table) GetStorage() storage.Storage {
+	return t.storage
+}
+
 func (t *Table) initIndexes() {
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
@@ -101,11 +117,23 @@ func (t *Table) buildIndexes() {
 	}
 }
 
-func (t *Table) PrepareRow(row interface{}) (map[string][]byte, error) {
+func (t *Table) ReBuildIndexes() {
+	t.indexes = index.Indexes{}
+
+	for _, i := range t.config.Indexes {
+		idx := CreateIndex(i.Type)
+		idx.Init(i.Name, t.name)
+		idx.SetColumns(i.Cols)
+		idx.BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
+		t.indexes = append(t.indexes, idx)
+	}
+}
+
+func (t *Table) PrepareRow(row interface{}) (map[string]interface{}, error) {
 	rvalue := reflect.ValueOf(row)
 	rtype := reflect.TypeOf(row)
 
-	result := make(map[string][]byte)
+	result := map[string]interface{}{}
 
 	for _, col := range t.config.Columns {
 
@@ -126,8 +154,8 @@ func (t *Table) PrepareRow(row interface{}) (map[string][]byte, error) {
 	return result, nil
 }
 
-func (t *Table) Insert(data interface{}) (err error) {
-	var row map[string][]byte
+func (t *Table) Insert(data interface{}, addToIndex bool) (err error) {
+	var row map[string]interface{}
 
 	if row, err = t.PrepareRow(data); err != nil {
 		return err
@@ -135,13 +163,14 @@ func (t *Table) Insert(data interface{}) (err error) {
 
 	rowid := t.storage.GetRowsCount()
 
-	//for i := range t.Indexes {
-	//idx := &t.Indexes[i]
-	//idx.Add(rowid, row)
-	//}
+	if addToIndex {
+		for i := range t.indexes {
+			t.indexes[i].Add(rowid, row)
+		}
+	}
 
 	for _, col := range t.config.Columns {
-		t.storage.SetBytes(rowid, col.Name, row[col.Name])
+		t.storage.SetBytes(rowid, col.Name, row[col.Name].([]byte))
 	}
 
 	return nil
@@ -194,7 +223,7 @@ func (t *Table) isTableFileExists() (res bool, err error) {
 func (t *Table) saveTableInfo() (err error) {
 	var data []byte
 
-	if data, err = json.Marshal(t); err != nil {
+	if data, err = json.Marshal(t.config); err != nil {
 		return err
 	}
 

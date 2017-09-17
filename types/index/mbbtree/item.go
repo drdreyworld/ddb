@@ -17,21 +17,22 @@ const (
 	CMP_KEY_GREATHER = 1
 )
 
-func (k Key) Equal(key Key) (r bool) {
+func (k Key) Equal(key *Key) (r bool) {
 	return k.Compare(key) == CMP_KEY_EQUAL
 }
 
-func (k Key) Less(key Key) (r bool) {
+func (k Key) Less(key *Key) (r bool) {
 	return k.Compare(key) == CMP_KEY_LESS
 }
 
-func (k Key) Greather(key Key) (r bool) {
+func (k Key) Greather(key *Key) (r bool) {
 	return k.Compare(key) == CMP_KEY_GREATHER
 }
 
-func (k Key) Compare(key Key) (r int) {
+func (k Key) Compare(key *Key) (r int) {
+	//return bytes.Compare(k, key)
 	lk := len(k)
-	lK := len(key)
+	lK := len(*key)
 
 	l := lk
 
@@ -54,7 +55,7 @@ func (k Key) Compare(key Key) (r int) {
 		if i >= lK {
 			b = 0
 		} else {
-			b = key[i]
+			b = (*key)[i]
 		}
 
 		if a < b {
@@ -97,11 +98,11 @@ func (i *TItem) IsRoot() bool {
 }
 
 func (i *TItem) isLeft() bool {
-	return !i.IsRoot() && i.parent.left != nil && i.parent.left.GetKey().Equal(i.GetKey())
+	return !i.IsRoot() && i.parent.left != nil && i.parent.left.data.key.Equal(&i.data.key)
 }
 
 func (i *TItem) isRight() bool {
-	return !i.IsRoot() && i.parent.right != nil && i.parent.right.GetKey().Equal(i.GetKey())
+	return !i.IsRoot() && i.parent.right != nil && i.parent.right.data.key.Equal(&i.data.key)
 }
 
 func (i *TItem) Left() *TItem {

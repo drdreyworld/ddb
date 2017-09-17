@@ -1,5 +1,8 @@
 {
-    "name" : "Users",
+    "storage" : "colstor",
+
+    "indexType" : "mbbtree",
+
     "columns" :
     [
         {
@@ -26,6 +29,11 @@
             "name"    : "UserName",
             "type"    : "mbbtree",
             "columns" : ["FName", "LName"]
+        },
+        {
+            "name"    : "UserIdName",
+            "type"    : "mbbtree",
+            "columns" : ["Id", "FName", "LName"]
         }
     ],
     "max_id":0
