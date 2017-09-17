@@ -2,13 +2,14 @@ package qselect
 
 import (
 	"ddb/types/query"
+	"errors"
 )
 
-func CreateSelectFromString(q string) *query.Select {
+func CreateSelectFromString(q string) (*query.Select, error) {
 	var b bool
 
 	if _, q, b = matchAndReplace(reselect, q); !b {
-		return nil
+		return nil, nil
 	}
 
 	result := &query.Select{}
@@ -19,5 +20,9 @@ func CreateSelectFromString(q string) *query.Select {
 	q, result.Order, b = ParseOrder(q)
 	q, result.Limit, b = ParseLimit(q)
 
-	return result
+	if len(q) > 0 {
+		return nil, errors.New("parse error near " + q)
+	}
+
+	return result, nil
 }

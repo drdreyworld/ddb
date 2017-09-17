@@ -18,7 +18,10 @@ func (p *Parser) Parse(query string) (interface{}, error) {
 	p.cutStrings()
 	p.normilizeWhiteSpaces()
 
-	result := qselect.CreateSelectFromString(p.query)
+	result, err := qselect.CreateSelectFromString(p.query)
+	if err != nil {
+		return nil, err
+	}
 
 	if result != nil {
 		for i := range result.Where {
