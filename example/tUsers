@@ -26,11 +26,6 @@
             "name"    : "UserName",
             "type"    : "mbbtree",
             "columns" : ["FName", "LName"]
-        },
-        {
-            "name"    : "UserId",
-            "type"    : "mbbtree",
-            "columns" : ["Id"]
         }
     ],
     "max_id":0
