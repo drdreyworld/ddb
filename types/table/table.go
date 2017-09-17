@@ -85,6 +85,7 @@ func CreateTable(name string, config config.TableConfig) (*Table, error) {
 func (t *Table) initIndexes() {
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
+		idx.Init(i.Name, t.name)
 		idx.SetColumns(i.Cols)
 
 		t.indexes = append(t.indexes, idx)
@@ -93,7 +94,10 @@ func (t *Table) initIndexes() {
 
 func (t *Table) buildIndexes() {
 	for i := 0; i < len(t.indexes); i++ {
-		t.indexes[i].BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
+		if err := t.indexes[i].Load(); err != nil {
+			t.indexes[i].BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
+			t.indexes[i].Save()
+		}
 	}
 }
 

@@ -1,15 +1,27 @@
 package mbbtree
 
 import (
+	"bufio"
 	"ddb/types"
-	"strconv"
-	"ddb/types/storage"
 	"ddb/types/query"
+	"ddb/types/storage"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+	"ddb/types/funcs"
 )
 
 type Index struct {
+	Table   string
+	Name    string
 	Columns []string
 	tree    BTree
+}
+
+func (i *Index) Init(Name, Table string) {
+	i.Name = Name
+	i.Table = Table
 }
 
 func (i *Index) GetColumns() []string {
@@ -223,7 +235,7 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 				switch value.(type) {
 				case string:
 					key += columnName + ":" + value.(string)
-					break;
+					break
 				case int32:
 					key += columnName + ":" + strconv.Itoa(int(value.(int32)))
 					break
@@ -246,6 +258,112 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 	for key := range rows {
 		i.Set(positions[key], rows[key])
 	}
+}
+
+func (i *Index) GetFileName() string {
+	return "/Users/andrey/Go/src/ddb/data/t" + i.Table + ".idx" + i.Name
+}
+
+func (i *Index) Load() error {
+	st := time.Now()
+	fmt.Println("Load index table", i.Table, "idx", i.Name)
+	fmt.Println("FileName:", i.GetFileName())
+
+	bytes := []byte{}
+
+	f, err := os.OpenFile(i.GetFileName(), os.O_RDONLY, 0777)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	s, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	bytes = make([]byte, s.Size())
+	if _, err := f.Read(bytes); err != nil {
+		return err
+	}
+
+	for p := 0; p < len(bytes); {
+		row := map[string]interface{}{}
+
+		for j := 0; j < len(i.Columns); j++ {
+
+			l := int(funcs.Int32FromBytes(bytes[p:p+5]))
+			p += 5
+
+			row[i.Columns[j]] = bytes[p:p+l]
+			p += l
+
+			//fmt.Println("column", j, ",", i.Columns[j], ":", funcs.StringFromNullByte(row[i.Columns[j]].([]byte)))
+		}
+		l := int(funcs.Int32FromBytes(bytes[p:p+5]))
+		p+=5
+		//positions := make([]int, l)
+		positions := []int{}
+		for k := 0; k < l; k++ {
+			positions = append(positions, int(funcs.Int32FromBytes(bytes[p:p+5])))
+			p+=5
+		}
+		i.Set(positions, row)
+	}
+
+	fmt.Println("load finished:", time.Now().Sub(st))
+
+	return err
+}
+
+func (i *Index) Save() error {
+	st := time.Now()
+	fmt.Println("Save index table", i.Table, "idx", i.Name)
+	fmt.Println("FileName:", i.GetFileName())
+
+	f, err := os.OpenFile(i.GetFileName(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+
+	colpos := map[string]int{}
+
+	for i, col := range i.Columns {
+		colpos[col] = i
+	}
+
+	row := make([][]byte, len(i.Columns))
+
+	i.Traverse(
+		map[string]string{},
+		func(column string, value []byte) bool {
+			row[colpos[column]] = value
+			return true
+		},
+		func(positions []int) bool {
+			for j := 0; j < len(row); j++ {
+				w.Write(funcs.Int32ToBytes(int32(len(row[j]))))
+				w.Write(row[j])
+			}
+			w.Write(funcs.Int32ToBytes(int32(len(positions))))
+			for i := 0; i < len(positions); i++ {
+				w.Write(funcs.Int32ToBytes(int32(positions[i])))
+			}
+			return true
+		},
+	)
+
+	if err = w.Flush(); err != nil {
+		panic(err)
+		return err
+	}
+
+	fmt.Println("save finished:", time.Now().Sub(st))
+
+	return err
 }
 
 func posInSlice(pos int, ps []int) bool {

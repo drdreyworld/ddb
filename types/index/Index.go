@@ -7,6 +7,8 @@ import (
 )
 
 type Index interface {
+	Init(Name, Table string)
+
 	Add(position int, columnsKeys map[string]interface{})
 
 	Set(positions []int, columnsKeys map[string]interface{})
@@ -20,6 +22,9 @@ type Index interface {
 	GetColumnsForIndex(cond types.CompareConditions, order query.Order) ([]string, []string, map[string]bool)
 
 	BuildIndex(storage storage.Storage, cond types.CompareConditions, order query.Order)
+
+	Load() error
+	Save() error
 }
 
 type WhereCallback func(column string, value []byte) bool
