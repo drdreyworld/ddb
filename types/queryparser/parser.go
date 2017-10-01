@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"ddb/types/queryparser/qselect"
 	"errors"
+	"ddb/types/queryparser/qinsert"
 )
 
 type Parser struct {
@@ -18,12 +19,21 @@ func (p *Parser) Parse(query string) (interface{}, error) {
 	p.cutStrings()
 	p.normilizeWhiteSpaces()
 
+	if result, err := qinsert.CreateInsertFromString(p.query); err == nil {
+		if result != nil {
+			qinsert.SetConstants(result, p.strvars)
+			return result, nil
+		}
+	} else {
+		return nil, err
+	}
+
 	result, err := qselect.CreateSelectFromString(p.query)
 	if err != nil {
 		return nil, err
 	}
 
-	if result != nil {
+	if result !=  nil {
 		for i := range result.Where {
 			val, ok := p.GetConstValue(result.Where[i].OperandB)
 			if ok {

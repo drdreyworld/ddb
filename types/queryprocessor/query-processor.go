@@ -28,30 +28,32 @@ func (qp *QueryProcessor) getTable(name string) (tab *table.Table, err error) {
 	}
 }
 
-func (qp *QueryProcessor) Execute(q interface{}) (*rowset.Rowset, error) {
+func (qp *QueryProcessor) Execute(q interface{}) (*rowset.Rowset, int, error) {
 	switch v := q.(type) {
 	case *query.Select:
 		return qp.executeSelect(v)
+	case *query.Insert:
+		return qp.executeInsert(v)
 	default:
-		return nil, errors.New("Unknown query type")
+		return nil, 0, errors.New("Unknown query type")
 	}
 }
 
-func (qp *QueryProcessor) executeSelect(sel *query.Select) (*rowset.Rowset, error) {
+func (qp *QueryProcessor) executeSelect(sel *query.Select) (*rowset.Rowset, int, error) {
 
 	rows := &rowset.Rowset{}
 
 	if len(sel.From) < 1 {
-		return nil, errors.New("FROM statement is empty")
+		return nil, 0, errors.New("FROM statement is empty")
 	}
 
-	table, err := qp.getTable(sel.From[0].Value)
+	tab, err := qp.getTable(sel.From[0].Value)
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	res, err := table.Select(
+	res, err := tab.Select(
 		sel.Columns,
 		sel.Where,
 		sel.Order,
@@ -59,7 +61,7 @@ func (qp *QueryProcessor) executeSelect(sel *query.Select) (*rowset.Rowset, erro
 	);
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	for _, col := range sel.Columns {
@@ -89,5 +91,20 @@ func (qp *QueryProcessor) executeSelect(sel *query.Select) (*rowset.Rowset, erro
 		}
 	}
 
-	return rows, nil
+	return rows, 0, nil
+}
+
+func (qp *QueryProcessor) executeInsert(ins *query.Insert) (*rowset.Rowset, int, error) {
+	tab, err := qp.getTable(string(ins.Table))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if err := tab.Insert(ins); err != nil {
+		return nil, 0, err
+	}
+
+	tab.Save()
+
+	return nil, len(ins.Values), nil
 }

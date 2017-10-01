@@ -1,10 +1,10 @@
 package mysql41
 
 import (
-	"net"
 	"ddb/types/queryparser"
 	"ddb/types/queryprocessor"
 	"ddb/types/rowset"
+	"net"
 )
 
 type Connection struct {
@@ -42,6 +42,9 @@ func (c *Connection) resetConnStatus() {
 }
 
 func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocessor.QueryProcessor) {
+	var err error
+	var rows *rowset.Rowset
+
 	c.resetConnStatus()
 	c.writeInitialPacket()
 
@@ -58,10 +61,12 @@ func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocesso
 			return
 		}
 
+		// fmt.Println("q:", p.readQuery())
+
 		query, err := parser.Parse(p.readQuery())
 		if err != nil {
 			c.sequence = p.readSequence()
-			c.writeError(1064, "Parse error:" + err.Error())
+			c.writeError(1064, "Parse error:"+err.Error())
 			continue
 		}
 
@@ -71,16 +76,20 @@ func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocesso
 			continue
 		}
 
-		rows, err := processor.Execute(query)
-		// rows, err := query.Execute()
+		rows, c.affecterRows, err = processor.Execute(query)
+
 		if err != nil {
 			c.sequence = p.readSequence()
-			c.writeError(1064, "Execution error: " + err.Error())
+			c.writeError(1064, "Execution error: "+err.Error())
 			continue
 		}
 
 		c.sequence = p.readSequence()
-		c.writeRowset(*rows)
+		if rows != nil {
+			c.writeRowset(*rows)
+		} else {
+			c.writeOkPacket()
+		}
 	}
 }
 

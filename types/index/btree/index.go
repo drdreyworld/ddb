@@ -192,13 +192,6 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 
 	rowsCount := storage.GetRowsCount()
 
-	/*
-	fmt.Println("rowsCount:", rowsCount)
-	fmt.Println("allColumns", allColumns)
-	fmt.Println("indexColumns", indexColumns)
-	fmt.Println("ignoreColumns", ignoreColumns)
-	*/
-
 	row := map[string]key.BytesKey{}
 
 	conds := cond.GroupByColumns()
@@ -207,10 +200,6 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 		matched := true
 
 		for _, columnName := range allColumns {
-			if _, ok := conds[columnName]; !ok {
-				continue
-			}
-
 			bytes := storage.GetBytes(position, columnName)
 
 			for _, condition := range conds[columnName] {

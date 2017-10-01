@@ -26,3 +26,11 @@ func CreateSelectFromString(q string) (*query.Select, error) {
 
 	return result, nil
 }
+// @TODO
+func SetConstants(result *query.Select, constants map[string]string) {
+	for i := range result.Where {
+		if val, ok := constants[result.Where[i].OperandB]; ok {
+			result.Where[i].OperandB = val
+		}
+	}
+}
