@@ -85,6 +85,14 @@ func (c *Columns) GetRowBytesByIndex(index int) map[string][]byte {
 	return res
 }
 
+func (c *Columns) GetValueByColumnIndex(position int, columnIndex int) interface{} {
+	return (*c)[columnIndex].GetValue(position)
+}
+
+func (c *Columns) GetBytesByColumnIndex(position int, columnIndex int) []byte {
+	return (*c)[columnIndex].GetBytes(position)
+}
+
 func (c *Columns) GetValue(position int, column string) interface{} {
 	return c.ByName(column).GetValue(position)
 }

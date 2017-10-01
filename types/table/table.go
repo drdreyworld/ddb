@@ -5,20 +5,17 @@ import (
 	"ddb/types"
 	"ddb/types/config"
 	"ddb/types/index"
-	"ddb/types/index/mbbtree"
+	"ddb/types/index/btree"
 	"ddb/types/storage"
 	"ddb/types/storage/colstor"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
-	"strconv"
-	"time"
 	"ddb/types/query"
-	"ddb/types/dbresult"
+	"ddb/types/key"
 )
 
 type Table struct {
@@ -31,8 +28,8 @@ type Table struct {
 
 func CreateIndex(indexType string) index.Index {
 	switch indexType {
-	case "mbbtree":
-		return &mbbtree.Index{}
+	case "btree":
+		return &btree.Index{}
 	default:
 		panic("Unknown index type")
 	}
@@ -129,11 +126,9 @@ func (t *Table) ReBuildIndexes() {
 	}
 }
 
-func (t *Table) PrepareRow(row interface{}) (map[string]interface{}, error) {
+func (t *Table) PrepareRow(row interface{}) (result map[string]key.BytesKey, err error) {
 	rvalue := reflect.ValueOf(row)
 	rtype := reflect.TypeOf(row)
-
-	result := map[string]interface{}{}
 
 	for _, col := range t.config.Columns {
 
@@ -141,11 +136,10 @@ func (t *Table) PrepareRow(row interface{}) (map[string]interface{}, error) {
 			return nil, errors.New("Can't get row column by name '" + col.Name + "' in row ")
 		} else {
 			if value.Type.Name() == col.Type {
-				val, err := funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
+				result[col.Name], err = funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
 				if err != nil {
 					return nil, err
 				}
-				result[col.Name] = val
 			} else {
 				return nil, errors.New("Invalid field type for column '" + col.Name + "': '" + value.Type.Name() + "'")
 			}
@@ -155,7 +149,7 @@ func (t *Table) PrepareRow(row interface{}) (map[string]interface{}, error) {
 }
 
 func (t *Table) Insert(data interface{}, addToIndex bool) (err error) {
-	var row map[string]interface{}
+	var row map[string]key.BytesKey
 
 	if row, err = t.PrepareRow(data); err != nil {
 		return err
@@ -170,7 +164,7 @@ func (t *Table) Insert(data interface{}, addToIndex bool) (err error) {
 	}
 
 	for _, col := range t.config.Columns {
-		t.storage.SetBytes(rowid, col.Name, row[col.Name].([]byte))
+		t.storage.SetBytes(rowid, col.Name, row[col.Name])
 	}
 
 	return nil
@@ -262,198 +256,4 @@ func (t *Table) convertCondToRow(cond []types.CompareCondition) (row map[string]
 		}
 	}
 	return row
-}
-
-func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition, err error) {
-	res = []types.CompareCondition{}
-	for i := range where {
-		c := t.config.Columns.ByName(where[i].OperandA)
-		if c == nil {
-			return nil, errors.New("Unknown column " + where[i].OperandA)
-		}
-
-		switch c.Type {
-
-		case "int32":
-			val, err := strconv.Atoi(where[i].OperandB)
-			if err != nil {
-				return nil, err
-			}
-
-			ival, err := funcs.ValueToBytes(val, c.Length)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, types.CompareCondition{
-				Field:      where[i].OperandA,
-				Value:      ival,
-				Compartion: where[i].Compartion,
-			})
-			break
-
-		case "string":
-			sval, err := funcs.ValueToBytes(where[i].OperandB, c.Length)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, types.CompareCondition{
-				Field:      where[i].OperandA,
-				Value:      sval,
-				Compartion: where[i].Compartion,
-			})
-
-			break
-		default:
-			return nil, errors.New("Unknown column type " + c.Type)
-		}
-	}
-	return res, nil
-}
-
-func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.Index {
-	columnsMap := map[string]bool{}
-
-	for i := range cond {
-		columnsMap[cond[i].Field] = true
-	}
-
-	for i := range order {
-		columnsMap[order[i].Column] = true
-	}
-
-	for _, idx := range t.indexes {
-		if ok := len(columnsMap) == len(idx.GetColumns()); ok {
-			for _, column := range idx.GetColumns() {
-				if _, ok = columnsMap[column]; !ok {
-					break
-				}
-			}
-
-			if ok {
-				return idx
-			}
-		}
-	}
-	return nil
-}
-
-func (t *Table) Select(cols query.SelectExprs, where query.Where, order query.Order, limit query.Limit) (res *dbresult.DbResult, err error) {
-	limit.PrepareLimit(t.storage.GetRowsCount())
-
-	var cond types.CompareConditions
-	var whereCallback index.WhereCallback
-
-	if cond, err = t.CreateFindCond(where); err != nil {
-		return nil, err
-	}
-
-	ordersColumns := map[string]string{}
-
-	for i := range order {
-		ordersColumns[order[i].Column] = order[i].Direction
-	}
-
-	var idx index.Index
-
-	if idx = t.GetIndex(cond, order); idx == nil {
-		if len(ordersColumns) == 0 {
-			fmt.Println("Search without index")
-			return t.SearchWithoutIndex(cols, cond, limit)
-		} else {
-			fmt.Println("Build index")
-			idx = CreateIndex(t.config.IndexType)
-			idx.BuildIndex(t.storage, cond, order)
-
-			whereCallback = nil
-		}
-	} else {
-		fmt.Println("Use index")
-		conds := map[string]types.CompareConditions{}
-		for _, column := range idx.GetColumns() {
-			conds[column] = cond.ByColumnName(column)
-		}
-
-		whereCallback = func(column string, value []byte) bool {
-			result := true
-			for _, cnd := range conds[column] {
-				if result = result && cnd.Compare(value); !result {
-					return result
-				}
-			}
-			return result
-		}
-	}
-
-	for _, columnName := range idx.GetColumns() {
-		if _, ok := ordersColumns[columnName]; !ok {
-			ordersColumns[columnName] = "ASC"
-		}
-	}
-
-	positions := make([]int, 0, limit.RowCount)
-
-	st := time.Now()
-	fmt.Println("Traverse index: ")
-	idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
-		for i := range pos {
-			positions = append(positions, pos[i])
-
-			if len(positions) >= limit.RowCount {
-				return false
-			}
-		}
-
-		return true
-	})
-	fmt.Println(" complete:", time.Now().Sub(st))
-
-	res = &dbresult.DbResult{}
-	res.Init(t.storage)
-	res.SetPositions(positions)
-	return res, nil
-}
-
-func (t *Table) SearchWithoutIndex(cols query.SelectExprs, cond types.CompareConditions, limit query.Limit) (res *dbresult.DbResult, err error) {
-
-	conds := map[string]types.CompareConditions{}
-
-	for _, column := range t.storage.GetColumns() {
-		conds[column] = cond.ByColumnName(column)
-	}
-
-	positions := []int{}
-	j := 0
-
-	for i := 0; i < t.storage.GetRowsCount(); i++ {
-		matched := true
-
-		for ci := range t.config.Columns {
-			column := &t.config.Columns[ci]
-			for _, columnCond := range conds[column.Name] {
-				if matched = columnCond.Compare(t.storage.GetBytes(i, column.Name)); !matched {
-					break
-				}
-			}
-			if !matched {
-				break
-			}
-		}
-
-		if matched {
-			if j >= limit.Offset {
-				positions = append(positions, i)
-			}
-			j++
-			if j >= limit.RowCount {
-				break
-			}
-		}
-	}
-
-	res = &dbresult.DbResult{}
-	res.Init(t.storage)
-	res.SetPositions(positions)
-	return res, nil
 }

@@ -2,6 +2,8 @@ package funcs
 
 import (
 	"errors"
+	"reflect"
+	"unsafe"
 )
 
 const ERR_UNKNOWN_TYPE = "Unknown value type"
@@ -19,9 +21,15 @@ func StringFromNullByte(b []byte) string {
 		}
 	}
 	if b[i] == 0 {
-		return string(b[:i])
+		bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+		sh := reflect.StringHeader{bh.Data, i}
+		return *(*string)(unsafe.Pointer(&sh))
+		//return string(b[:i])
 	}
-	return string(b)
+	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	sh := reflect.StringHeader{bh.Data, bh.Len}
+	return *(*string)(unsafe.Pointer(&sh))
+	//return string(b)
 }
 
 func Int32ToBytes(i int32) []byte {

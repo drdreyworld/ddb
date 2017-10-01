@@ -4,24 +4,23 @@ import (
 	"ddb/types"
 	"ddb/types/storage"
 	"ddb/types/query"
+	"ddb/types/key"
 )
 
 type Index interface {
 	Init(Name, Table string)
 
-	Add(position int, columnsKeys map[string]interface{})
-
-	Set(positions []int, columnsKeys map[string]interface{})
+	Add(position int, columnsKeys map[string]key.BytesKey)
 
 	GetColumns() []string
 
 	SetColumns(columns []string)
 
-	Traverse(orderColumns map[string]string, whereCallback func(column string, value []byte) bool, callback func(positions []int) bool) bool
+	Traverse(orderColumns map[string]string, whereCallback func(column string, value interface{}) bool, callback func(positions []int) bool) bool
 
 	GetColumnsForIndex(cond types.CompareConditions, order query.Order) ([]string, []string, map[string]bool)
 
-	BuildIndex(storage storage.Storage, cond types.CompareConditions, order query.Order)
+	BuildIndex(storage storage.Storage, cond types.CompareConditions, order query.Order) bool
 
 	Load() error
 	Save() error

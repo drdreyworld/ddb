@@ -39,20 +39,15 @@ func main() {
 	}()
 
 	t = time.Now()
-	tab, err = table.OpenTable("Users2")
+	tab, err = table.OpenTable("Users")
 	panicIfError(err)
 
 	t = time.Now()
 	i := 0
-	t = time.Now()
-	for i = 0; i < 3000000; i++ {
-		tab.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]}, false)
+	for i = 0; i < 10000000; i++ {
+		tab.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]}, true)
 	}
 	fmt.Println("Inserted", i, "rows in table ", time.Now().Sub(t))
-
-	t = time.Now()
-	tab.ReBuildIndexes()
-	fmt.Println("Build indexes", i, "rows in table ", time.Now().Sub(t))
 
 	t = time.Now()
 	tab.Save()

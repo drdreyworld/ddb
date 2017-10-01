@@ -5,6 +5,10 @@ import "ddb/types/config"
 type Storage interface {
 	GetColumns()[]string
 	GetRowsCount() int
+
+	GetValueByColumnIndex(position int, columnIndex int) interface{}
+	GetBytesByColumnIndex(position int, columnIndex int) []byte
+
 	GetValue(position int, column string) interface{}
 	GetBytes(position int, column string) []byte
 	SetBytes(position int, column string, value []byte)

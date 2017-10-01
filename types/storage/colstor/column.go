@@ -47,6 +47,12 @@ func (c *Column) GetValue(index int) interface{} {
 	case "int32":
 		return funcs.Int32FromBytes(c.GetBytes(index))
 		break
+	//case "string":
+	//	return btree.StringKey(funcs.StringFromNullByte(c.GetBytes(index)))
+	//	break
+	//case "int32":
+	//	return btree.IntKey(funcs.Int32FromBytes(c.GetBytes(index)))
+	//	break
 	}
 	return nil
 }
@@ -78,10 +84,6 @@ func (c *Column) Save() error {
 		return err
 	}
 	defer f.Close()
-
-	//if _, err := f.Seek(int64(c.LastSavedPos)*int64(c.Length), 0); err != nil {
-	//	return err
-	//}
 
 	if _, err := f.Write(c.bytes); err != nil {
 		return err
