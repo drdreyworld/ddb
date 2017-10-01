@@ -10,6 +10,8 @@ import (
 )
 
 func (t *Table) PrepareRow(row interface{}) (result map[string]key.BytesKey, err error) {
+	result = make(map[string]key.BytesKey)
+
 	rvalue := reflect.ValueOf(row)
 	rtype := reflect.TypeOf(row)
 

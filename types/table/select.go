@@ -87,36 +87,36 @@ func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.
 	return nil
 }
 
-func (t *Table) Select(cols query.SelectExprs, where query.Where, order query.Order, limit query.Limit) (res *dbresult.DbResult, err error) {
-	limit.PrepareLimit(t.storage.GetRowsCount())
+func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
+	sel.Limit.PrepareLimit(t.storage.GetRowsCount())
 
 	var cond types.CompareConditions
 	//var whereCallback index.WhereCallback
 
-	if cond, err = t.CreateFindCond(where); err != nil {
+	if cond, err = t.CreateFindCond(sel.Where); err != nil {
 		return nil, err
 	}
 
 	ordersColumns := map[string]string{}
 
-	for i := range order {
-		ordersColumns[order[i].Column] = order[i].Direction
+	for _, order := range sel.Order {
+		ordersColumns[order.Column] = order.Direction
 	}
 
 	var idx index.Index
 
-	if idx = t.GetIndex(cond, order); idx == nil {
+	if idx = t.GetIndex(cond, sel.Order); idx == nil {
 		if len(ordersColumns) == 0 {
-			return t.SearchWithoutIndex(cols, cond, limit)
+			return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
 		} else {
 			now := time.Now()
 			fmt.Print("Build index: ")
 			idx = CreateIndex(t.config.IndexType)
 			idx.Init("tmpidx", t.name)
 
-			if !idx.BuildIndex(t.storage, cond, order) {
+			if !idx.BuildIndex(t.storage, cond, sel.Order) {
 				fmt.Println("index not need: ", time.Now().Sub(now))
-				return t.SearchWithoutIndex(cols, cond, limit)
+				return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
 			}
 
 			fmt.Println(time.Now().Sub(now))
@@ -143,7 +143,6 @@ func (t *Table) Select(cols query.SelectExprs, where query.Where, order query.Or
 		}
 	}
 
-	//positions := make([]int, 0, limit.RowCount)
 	positions := []int{}
 
 	st := time.Now()
@@ -153,7 +152,7 @@ func (t *Table) Select(cols query.SelectExprs, where query.Where, order query.Or
 		for i := range pos {
 			positions = append(positions, pos[i])
 
-			if len(positions) >= limit.RowCount {
+			if len(positions) >= sel.Limit.RowCount {
 				return false
 			}
 		}

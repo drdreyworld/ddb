@@ -45,7 +45,7 @@ func main() {
 	t = time.Now()
 	i := 0
 	for i = 0; i < 10000000; i++ {
-		tab.Insert(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]}, true)
+		tab.InsertOld(u{Id: int32(i), FName: FNames[rand.Intn(len(FNames))], LName: LNames[rand.Intn(len(LNames))]}, true)
 	}
 	fmt.Println("Inserted", i, "rows in table ", time.Now().Sub(t))
 

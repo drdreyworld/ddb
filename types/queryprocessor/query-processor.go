@@ -53,12 +53,7 @@ func (qp *QueryProcessor) executeSelect(sel *query.Select) (*rowset.Rowset, int,
 		return nil, 0, err
 	}
 
-	res, err := tab.Select(
-		sel.Columns,
-		sel.Where,
-		sel.Order,
-		sel.Limit,
-	);
+	res, err := tab.Select(sel)
 
 	if err != nil {
 		return nil, 0, err

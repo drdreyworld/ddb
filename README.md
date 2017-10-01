@@ -45,7 +45,7 @@ Usage of ./server:
 
 Go to example path and run create-table.go file.
 
-It will create test table Users with 1.000.000 rows.
+It will create test table Users with 10.000.000 rows.
 
 Rows struct:
 - Id - Row ID
