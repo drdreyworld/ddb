@@ -1,7 +1,6 @@
 package table
 
 import (
-	"ddb/types/funcs"
 	"ddb/types"
 	"ddb/types/config"
 	"ddb/types/index"
@@ -11,11 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
-	"reflect"
 	"ddb/types/query"
-	"ddb/types/key"
 )
 
 type Table struct {
@@ -126,77 +122,6 @@ func (t *Table) ReBuildIndexes() {
 	}
 }
 
-func (t *Table) PrepareRow(row interface{}) (result map[string]key.BytesKey, err error) {
-	rvalue := reflect.ValueOf(row)
-	rtype := reflect.TypeOf(row)
-
-	for _, col := range t.config.Columns {
-
-		if value, ok := rtype.FieldByName(col.Name); !ok {
-			return nil, errors.New("Can't get row column by name '" + col.Name + "' in row ")
-		} else {
-			if value.Type.Name() == col.Type {
-				result[col.Name], err = funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, errors.New("Invalid field type for column '" + col.Name + "': '" + value.Type.Name() + "'")
-			}
-		}
-	}
-	return result, nil
-}
-
-func (t *Table) Insert(data interface{}, addToIndex bool) (err error) {
-	var row map[string]key.BytesKey
-
-	if row, err = t.PrepareRow(data); err != nil {
-		return err
-	}
-
-	rowid := t.storage.GetRowsCount()
-
-	if addToIndex {
-		for i := range t.indexes {
-			t.indexes[i].Add(rowid, row)
-		}
-	}
-
-	for _, col := range t.config.Columns {
-		t.storage.SetBytes(rowid, col.Name, row[col.Name])
-	}
-
-	return nil
-}
-
-func (t *Table) Update(id int, row interface{}) (err error) {
-	rvalue := reflect.ValueOf(row)
-	rtype := reflect.TypeOf(row)
-
-	if id >= t.storage.GetRowsCount() {
-		return errors.New("ID out of range")
-	}
-
-	for _, col := range t.config.Columns {
-
-		if value, ok := rtype.FieldByName(col.Name); !ok {
-			log.Fatalln("Can't get row column by name '", col.Name, "' in row ", row)
-		} else {
-			if value.Type.Name() == col.Type {
-				b, err := funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
-				if err != nil {
-					panic("Can't convert value to bytes")
-				}
-				t.storage.SetBytes(id, col.Name, b)
-			} else {
-				log.Fatalln("Invalid field type for column", col.Name, ": ", value.Type.Name())
-			}
-		}
-	}
-
-	return nil
-}
 
 func (t *Table) GetFileName() string {
 	return "/Users/andrey/Go/src/ddb/data/t" + t.name
@@ -232,28 +157,4 @@ func (t *Table) loadTableInfo() (err error) {
 	}
 
 	return json.Unmarshal(data, &t.config)
-}
-
-func (t *Table) convertCondToRow(cond []types.CompareCondition) (row map[string][]byte) {
-	cols := t.config.Columns
-	colsMap := map[string]int{}
-	for _, c := range cols {
-		colsMap[c.Name] = c.Length
-	}
-
-	row = map[string][]byte{}
-
-	for c := range cond {
-		if colLength, ok := colsMap[cond[c].Field]; !ok {
-			panic("column not found by name " + cond[c].Field)
-		} else {
-			b, err := funcs.ValueToBytes(cond[c].Value, colLength)
-			if err != nil {
-				panic(err)
-			}
-
-			row[cond[c].Field] = b
-		}
-	}
-	return row
 }
