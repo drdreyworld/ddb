@@ -28,19 +28,13 @@ func (p *Parser) Parse(query string) (interface{}, error) {
 		return nil, err
 	}
 
-	result, err := qselect.CreateSelectFromString(p.query)
-	if err != nil {
-		return nil, err
-	}
-
-	if result !=  nil {
-		for i := range result.Where {
-			val, ok := p.GetConstValue(result.Where[i].OperandB)
-			if ok {
-				result.Where[i].OperandB = val
-			}
+	if result, err := qselect.CreateSelectFromString(p.query); err == nil {
+		if result != nil {
+			qselect.SetConstants(result, p.strvars)
+			return result, nil
 		}
-		return result, nil
+	} else {
+		return nil, err
 	}
 
 	return nil, errors.New("Can't parse query")
