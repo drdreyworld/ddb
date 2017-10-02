@@ -21,8 +21,6 @@ var (
 	reorder           *regexp.Regexp
 	reorderdir        *regexp.Regexp
 	relimit           *regexp.Regexp
-	reinsert          *regexp.Regexp
-	reinsertTable     *regexp.Regexp
 )
 
 func init() {
@@ -32,8 +30,10 @@ func init() {
 	reconststr = regexp.MustCompile(`^(?i)(\s*\@strval\d+\s*)`)
 	reconstint = regexp.MustCompile(`^(?i)(\s*\d+\s*)`)
 	refunc = regexp.MustCompile(`^(?i)(\s*\w+\(.*?\)\s*)`)
-	recolumnWithAlias = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}(\s+as\s+\w+){0,1}\s*)`)
-	recolumn = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}\s*)`)
+	//recolumnWithAlias = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}(\s+as\s+\w+){0,1}\s*)`)
+	recolumnWithAlias = regexp.MustCompile(`^(?i)(\s*(?:\w+|\*)(\.\w+){0,1}(\s+as\s+\w+){0,1}\s*)`)
+	//recolumn = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}\s*)`)
+	recolumn = regexp.MustCompile(`^(?i)(\s*\w+(\.(?:\w+|\*)){0,1}\s*)`)
 	refrom = regexp.MustCompile(`^(?i)(\s*from\s*)`)
 	refromtable = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}(\s+as\s+\w+){0,1}\s*)`)
 	rewhere = regexp.MustCompile(`^(?i)(\s*where\s*)`)
@@ -42,9 +42,6 @@ func init() {
 	reorder = regexp.MustCompile(`^(?i)(\s*order\s+by\s+)`)
 	reorderdir = regexp.MustCompile(`^(?i)(\s*(ASC|DESC))`)
 	relimit = regexp.MustCompile(`^(?i)(\s*limit\s+(\d+)(?:,\s*(\d+)){0,1}\s*)`)
-
-	reinsert = regexp.MustCompile(`^(?i)(\s*insert\s+into\s+)`)
-	reinsertTable = regexp.MustCompile(`^(?i)(\s*\w+(\.\w+){0,1}(\s+as\s+\w+){0,1}\s*)`)
 }
 
 func matchAndReplace(r *regexp.Regexp, s string) (match string, rs string, rb bool) {

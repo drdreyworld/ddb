@@ -88,6 +88,31 @@ func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.
 }
 
 func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
+
+	// select * magic >>>
+	cols := query.SelectExprs{}
+	selallcols := false
+	for i := range sel.Columns {
+		if sel.Columns[i].Value == "*" {
+			if !selallcols {
+				for _, col := range t.config.Columns {
+					cols = append(cols, query.SelectExpr{
+						Value: col.Name,
+						Type: query.SEL_EXPR_TYPE_COLUMN,
+					})
+				}
+				selallcols = true
+			} else {
+				continue;
+			}
+		} else {
+			cols = append(cols, sel.Columns[i])
+		}
+	}
+
+	sel.Columns = cols
+	// <<< select * magic
+
 	sel.Limit.PrepareLimit(t.storage.GetRowsCount())
 
 	var cond types.CompareConditions
