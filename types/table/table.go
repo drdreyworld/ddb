@@ -21,6 +21,8 @@ type Table struct {
 
 	storage storage.Storage
 	indexes index.Indexes
+
+	Lock bool
 }
 
 func CreateIndex(indexType string) index.Index {

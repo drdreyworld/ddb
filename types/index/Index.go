@@ -10,6 +10,7 @@ import (
 
 type Index interface {
 	Init(Name, Table string)
+	GetName() string
 
 	Add(position int, columnsKeys map[string]key.BytesKey)
 

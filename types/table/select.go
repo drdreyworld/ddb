@@ -149,7 +149,7 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 			whereCallback = nil
 		}
 	} else {
-		fmt.Println("Use index")
+		fmt.Println("Use index:", idx.GetName())
 		conds := cond.GroupByColumns()
 
 		whereCallback = func(column string, value key.BytesKey) bool {

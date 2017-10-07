@@ -20,6 +20,8 @@ var (
 	Port *string = flag.String("port", "3306", "server port")
 )
 
+var queryProcessor *queryprocessor.QueryProcessor
+
 func main() {
 	flag.Parse()
 
@@ -27,9 +29,12 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
+	queryProcessor = &queryprocessor.QueryProcessor{}
+	queryProcessor.Init()
+
 	listener := server.Listener{Host: *Host, Port: *Port}
 	listener.HandleFunc = func(conn net.Conn) {
-		mysql41.NewConnection(conn).Handle(&queryparser.Parser{}, &queryprocessor.QueryProcessor{})
+		mysql41.NewConnection(conn).Handle(&queryparser.Parser{}, queryProcessor)
 	}
 
 	if err = listener.Listen(); err != nil {

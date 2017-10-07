@@ -26,6 +26,10 @@ func (i *Index) Init(Name, Table string) {
 	i.tree.Degree = 200
 }
 
+func (i *Index) GetName() string {
+	return i.Name
+}
+
 func (i *Index) GetColumns() config.ColumnsConfig {
 	return i.Columns
 }
