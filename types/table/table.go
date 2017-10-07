@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"ddb/types/query"
+	"fmt"
 )
 
 type Table struct {
@@ -95,6 +96,7 @@ func (t *Table) initIndexes() {
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
 		idx.Init(i.Name, t.name)
+		fmt.Println("set columns:", i.Cols)
 		idx.SetColumns(i.Cols)
 
 		t.indexes = append(t.indexes, idx)
@@ -104,6 +106,12 @@ func (t *Table) initIndexes() {
 func (t *Table) buildIndexes() {
 	for i := 0; i < len(t.indexes); i++ {
 		if err := t.indexes[i].Load(); err != nil {
+			fmt.Println(err)
+			if err.Error() == "EOF" {
+				fmt.Println("ignore error")
+				continue
+			}
+
 			t.indexes[i].BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
 			t.indexes[i].Save()
 		}

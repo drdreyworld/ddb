@@ -1,8 +1,8 @@
 package btree
 
 import (
-	"fmt"
 	"ddb/types/key"
+	"fmt"
 )
 
 type Items []*Item
@@ -12,7 +12,7 @@ type Item struct {
 	Items  Items
 	Values Values
 	Count  int
-	Index int
+	Index  int
 }
 
 func (item *Item) Find(k key.BytesKey) *Value {
@@ -20,23 +20,24 @@ func (item *Item) Find(k key.BytesKey) *Value {
 		return nil
 	}
 
-	pos := item.Count
+	i := 0
+	j := item.Count
 
-	for ; pos > 0; pos-- {
-		cmpr := item.Values[pos-1].Key.Compare(k)
-
-		if cmpr == key.CMP_KEY_EQUAL {
-			return item.Values[pos-1]
-		} else if cmpr == key.CMP_KEY_LESS {
+	for i < len(k) && j > 0 {
+		if k[i] == item.Values[j-1].Key[i] {
+			i++
+		} else if k[i] < item.Values[j-1].Key[i] {
+			j--
+		} else {
 			break
 		}
 	}
 
-	if pos < 0 {
-		return nil
+	if i == len(k) {
+		return item.Values[j-1]
 	}
 
-	return item.Items[pos].Find(k)
+	return item.Items[j].Find(k)
 }
 
 func (item *Item) SplitChild(tree *BTree, n int) {
@@ -45,72 +46,68 @@ func (item *Item) SplitChild(tree *BTree, n int) {
 	z := tree.newItem()
 	z.Leaf = y.Leaf
 
-	z.Count = tree.Degree-1
-	y.Count = tree.Degree-1
+	z.Count = tree.Degree - 1
+	y.Count = tree.Degree - 1
 
-	for i := 0; i < tree.Degree;i++ {
+	for i := 0; i < tree.Degree; i++ {
 		z.Values[i], y.Values[tree.Degree+i] = y.Values[tree.Degree+i], nil
 		z.Items[i], y.Items[tree.Degree+i] = y.Items[tree.Degree+i], nil
 	}
-
-	//copy(z.Values[:], y.Values[tree.Degree:])
-	//
-	//if !y.Leaf {
-	//	copy(z.Items[:], y.Items[tree.Degree:])
-	//}
 
 	for i := item.Count - 1; i > n; i-- {
 		item.Values[i] = item.Values[i-1]
 		item.Items[i+1] = item.Items[i]
 	}
-	//copy(item.Values[n+1:], item.Values[n:])
+
 	item.Values[n] = y.Values[tree.Degree-1]
 	y.Values[tree.Degree-1] = nil
 
-	//for i := n+1; i < item.Count; i++ {
-	//	item.Items[i+1] = item.Items[i]
-	//}
-	//copy(item.Items[n+2:], item.Items[n+1:])
 	item.Items[n+1] = z
 	item.Count++
 }
 
 func (item *Item) Insert(tree *BTree, value *Value) {
 	if item.Leaf {
+		i := 0
+		j := item.Count
 
-		pos := item.Count
-		for ; pos > 0; pos-- {
-			cmpr := item.Values[pos-1].Key.Compare(value.Key)
-
-			if cmpr == key.CMP_KEY_EQUAL {
-				item.Values[pos-1] = value
-				return
-			}
-
-			if cmpr == key.CMP_KEY_LESS {
+		for i < len(value.Key) && j > 0 {
+			if item.Values[j-1].Key[i] == value.Key[i] {
+				i++
+			} else if item.Values[j-1].Key[i] > value.Key[i] {
+				item.Values[j] = item.Values[j-1]
+				j--
+			} else {
 				break
 			}
-
-			item.Values[pos] = item.Values[pos-1]
 		}
 
-		item.Values[pos] = value
+		if i == len(value.Key) {
+			return
+		}
+
+		item.Values[j] = value
 		item.Count++
 	} else {
-
 		pos := item.Count
+		i := 0
 
-		for ; pos > 0; pos-- {
-			cmpr := value.Key.Compare(item.Values[pos-1].Key)
-
-			if cmpr == key.CMP_KEY_EQUAL {
-				return
+		for pos > 0 {
+			if value.Key[i] == item.Values[pos-1].Key[i] {
+				i++
+				if i == len(value.Key) {
+					return
+				}
+				continue
 			}
 
-			if cmpr == key.CMP_KEY_GREATHER {
+			if value.Key[i] > item.Values[pos-1].Key[i] {
 				break
 			}
+
+			pos--
 		}
+
 
 		if item.Items[pos].Count == 2*tree.Degree-1 {
 			item.SplitChild(tree, pos)
@@ -127,6 +124,75 @@ func (item *Item) Insert(tree *BTree, value *Value) {
 		}
 
 		item.Items[pos].Insert(tree, value)
+	}
+}
+
+
+func (item *Item) InsertIfNotExists(tree *BTree, value *Value) *Value {
+	if item.Leaf {
+		i := 0
+		j := item.Count
+
+		for i < len(value.Key) && j > 0 {
+			if item.Values[j-1].Key[i] == value.Key[i] {
+				i++
+			} else if item.Values[j-1].Key[i] > value.Key[i] {
+				item.Values[j] = item.Values[j-1]
+				j--
+			} else {
+				break
+			}
+		}
+
+		if i == len(value.Key) {
+			return item.Values[j-1]
+		}
+
+		item.Values[j] = value
+		item.Count++
+
+		return item.Values[j]
+	} else {
+		pos := item.Count
+		i := 0
+
+		for pos > 0 {
+			aval := item.Values[pos-1]
+			if aval == nil {
+				pos--
+				continue
+			}
+
+			if value.Key[i] == aval.Key[i] {
+				i++
+				if i == len(value.Key) {
+					return item.Values[pos-1]
+				}
+				continue
+			}
+
+			if value.Key[i] > aval.Key[i] {
+				break
+			}
+
+			pos--
+		}
+
+		if item.Items[pos].Count == 2*tree.Degree-1 {
+			item.SplitChild(tree, pos)
+
+			cmpr := value.Key.Compare(item.Values[pos].Key)
+
+			if cmpr == key.CMP_KEY_EQUAL {
+				return item.Values[pos]
+			}
+
+			if cmpr == key.CMP_KEY_GREATHER {
+				pos += 1
+			}
+		}
+
+		return item.Items[pos].InsertIfNotExists(tree, value)
 	}
 }
 
@@ -159,6 +225,19 @@ func (item *Item) DebugTree() {
 	d--
 }
 
+func (item *Item) InfixTraverseItems(fn func(i *Item) bool) bool {
+	if item == nil {
+		return true
+	}
+	for i := 0; i <= item.Count; i++ {
+		if item.Items[i] != nil && !item.Items[i].InfixTraverseItems(fn) {
+			return false
+		}
+	}
+	return fn(item)
+}
+
+
 func (item *Item) InfixTraverse(fn func(v *Value) bool) bool {
 	for i := 0; i <= item.Count; i++ {
 		if item.Items[i] != nil && !item.Items[i].InfixTraverse(fn) {
@@ -173,6 +252,10 @@ func (item *Item) InfixTraverse(fn func(v *Value) bool) bool {
 }
 
 func (item *Item) PostfixTraverse(fn func(v *Value) bool) bool {
+	if item == nil {
+		return true
+	}
+
 	for i := item.Count; i >= 0; i-- {
 		if item.Values[i] != nil && !fn(item.Values[i]) {
 			return false

@@ -1,40 +1,27 @@
 {
-    "storage" : "colstor",
-
-    "indexType" : "mbbtree",
-
-    "columns" :
-    [
-        {
-            "name"   : "FName",
-            "title"  : "First name",
-            "length" : 50,
-            "type"   : "string"
-        },
-        {
-            "name"   : "LName",
-            "title"  : "Last name",
-            "length" : 50,
-            "type"   : "string"
-        },
-        {
-            "name"   : "Id",
-            "title"  : "User ID",
-            "length" : 8,
-            "type"   : "int32"
-        }
-    ],
-    "indexes" : [
-        {
-            "name"    : "UserName",
-            "type"    : "mbbtree",
-            "columns" : ["FName", "LName"]
-        },
-        {
-            "name"    : "UserIdName",
-            "type"    : "mbbtree",
-            "columns" : ["Id", "FName", "LName"]
-        }
-    ],
-    "max_id":0
-}
+"name":"",
+"storage":"colstor",
+"indexType":"btree",
+"columns":[
+    {"name":"FName","length":50,"type":"string"},
+    {"name":"LName","length":50,"type":"string"},
+    {"name":"Id","length":5,"type":"int32"}
+],
+"max_id":0,
+"indexes":[
+    {
+        "name":"UserId",
+        "type":"btree",
+        "columns":[
+            {"name":"Id","length":5,"type":"int32"}
+        ]
+    },
+    {
+        "name":"UserName",
+        "type":"btree",
+        "columns":[
+            {"name":"FName","length":50,"type":"string"},
+            {"name":"LName","length":50,"type":"string"}
+        ]
+    }
+]}

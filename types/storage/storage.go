@@ -3,6 +3,7 @@ package storage
 import "ddb/types/config"
 
 type Storage interface {
+	GetColumnsConfig()config.ColumnsConfig
 	GetColumns()[]string
 	GetRowsCount() int
 

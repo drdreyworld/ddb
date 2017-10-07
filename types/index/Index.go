@@ -5,6 +5,7 @@ import (
 	"ddb/types/storage"
 	"ddb/types/query"
 	"ddb/types/key"
+	"ddb/types/config"
 )
 
 type Index interface {
@@ -12,11 +13,10 @@ type Index interface {
 
 	Add(position int, columnsKeys map[string]key.BytesKey)
 
-	GetColumns() []string
+	GetColumns() config.ColumnsConfig
+	SetColumns(columns config.ColumnsConfig)
 
-	SetColumns(columns []string)
-
-	Traverse(orderColumns map[string]string, whereCallback func(column string, value interface{}) bool, callback func(positions []int) bool) bool
+	Traverse(orderColumns map[string]string, whereCallback func(column string, value key.BytesKey) bool, callback func(positions []int) bool) bool
 
 	GetColumnsForIndex(cond types.CompareConditions, order query.Order) ([]string, []string, map[string]bool)
 
@@ -26,7 +26,7 @@ type Index interface {
 	Save() error
 }
 
-type WhereCallback func(column string, value []byte) bool
+type WhereCallback func(column string, value key.BytesKey) bool
 
 type TraverseCallback func(positions []int) bool
 

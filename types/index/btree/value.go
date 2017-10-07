@@ -4,11 +4,10 @@ import (
 	"ddb/types/key"
 )
 
-type Data interface{}
-
 type Value struct {
 	Key  key.BytesKey
-	Data Data
+	Data []int
+	Tree *BTree
 }
 
 type Values []*Value

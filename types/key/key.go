@@ -15,8 +15,11 @@ func (k BytesKey) Equal(key BytesKey) (r bool) {
 
 	l := len(key)
 
+	_ = k[l-1]
+	_ = key[l-1]
+
 	for i := 0; i < l; i++ {
-		if k[i] != (key)[i] {
+		if k[i] != key[i] {
 			return false
 		}
 	}
@@ -33,8 +36,12 @@ func (k BytesKey) Greather(key BytesKey) (r bool) {
 }
 
 func (k BytesKey) Compare(key BytesKey) (r int) {
+	//return bytes.Compare(k, key)
 	lk := len(k)
 	lK := len(key)
+
+	_ = k[lk-1]
+	_ = key[lK-1]
 
 	l := lk
 
@@ -48,13 +55,13 @@ func (k BytesKey) Compare(key BytesKey) (r int) {
 		if i >= lk {
 			a = 0
 		} else {
-			a = (k)[i]
+			a = k[i]
 		}
 
 		if i >= lK {
 			b = 0
 		} else {
-			b = (key)[i]
+			b = key[i]
 		}
 
 		if a < b {

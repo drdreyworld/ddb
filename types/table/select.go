@@ -10,6 +10,7 @@ import (
 	"time"
 	"ddb/types/query"
 	"ddb/types/dbresult"
+	"ddb/types/key"
 )
 
 func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition, err error) {
@@ -74,7 +75,7 @@ func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.
 	for _, idx := range t.indexes {
 		if ok := len(columnsMap) == len(idx.GetColumns()); ok {
 			for _, column := range idx.GetColumns() {
-				if _, ok = columnsMap[column]; !ok {
+				if _, ok = columnsMap[column.Name]; !ok {
 					break
 				}
 			}
@@ -116,7 +117,7 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 	sel.Limit.PrepareLimit(t.storage.GetRowsCount())
 
 	var cond types.CompareConditions
-	//var whereCallback index.WhereCallback
+	var whereCallback index.WhereCallback
 
 	if cond, err = t.CreateFindCond(sel.Where); err != nil {
 		return nil, err
@@ -145,26 +146,26 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 			}
 
 			fmt.Println(time.Now().Sub(now))
-			//whereCallback = nil
+			whereCallback = nil
 		}
 	} else {
 		fmt.Println("Use index")
-		//conds := cond.GroupByColumns()
-		//
-		//whereCallback = func(column string, value []byte) bool {
-		//	result := true
-		//	for _, cnd := range conds[column] {
-		//		if result = result && cnd.Compare(value); !result {
-		//			return result
-		//		}
-		//	}
-		//	return result
-		//}
+		conds := cond.GroupByColumns()
+
+		whereCallback = func(column string, value key.BytesKey) bool {
+			result := true
+			for _, cnd := range conds[column] {
+				if result = result && cnd.Compare(value); !result {
+					return result
+				}
+			}
+			return result
+		}
 	}
 
-	for _, columnName := range idx.GetColumns() {
-		if _, ok := ordersColumns[columnName]; !ok {
-			ordersColumns[columnName] = "ASC"
+	for _, column := range idx.GetColumns() {
+		if _, ok := ordersColumns[column.Name]; !ok {
+			ordersColumns[column.Name] = "ASC"
 		}
 	}
 
@@ -172,8 +173,8 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 
 	st := time.Now()
 	fmt.Print("Traverse index: ")
-	//idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
-	idx.Traverse(ordersColumns, nil, func(pos []int) bool {
+	idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
+	//idx.Traverse(ordersColumns, nil, func(pos []int) bool {
 		for i := range pos {
 			positions = append(positions, pos[i])
 

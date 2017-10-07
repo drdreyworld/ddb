@@ -45,6 +45,18 @@ func (c *Columns) ByName(name string) *Column {
 	return nil
 }
 
+func (c *Columns) GetColumnsConfig() config.ColumnsConfig {
+	result := config.ColumnsConfig{}
+	for _, column := range *c {
+		result = append(result, config.ColumnConfig{
+			Name:   column.Name,
+			Length: column.Length,
+			Type:   column.Type,
+		})
+	}
+	return result
+}
+
 func (c *Columns) GetColumns() []string {
 	result := []string{}
 	for _, column := range *c {
