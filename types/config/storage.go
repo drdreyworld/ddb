@@ -16,3 +16,12 @@ func (cc *ColumnsConfig) ByName(column string) *ColumnConfig {
 	}
 	return nil
 }
+
+func (cc *ColumnsConfig) GetMap() map[string]ColumnConfig {
+	result := map[string]ColumnConfig{}
+	for i := range *cc {
+		result[(*cc)[i].Name] = (*cc)[i]
+	}
+	return result
+}
+

@@ -40,8 +40,12 @@ func (wc *CompareCondition) Compare(value key.BytesKey) bool {
 		return !value.Equal(wc.Value)
 	case "<":
 		return value.Less(wc.Value)
+	case "<=":
+		return value.LessOrEqual(wc.Value)
 	case ">":
 		return value.Greather(wc.Value)
+	case ">=":
+		return value.GreatherOrEqual(wc.Value)
 	}
 	panic("Unknown compartion value " + wc.Compartion)
 }

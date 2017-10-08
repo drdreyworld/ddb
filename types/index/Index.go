@@ -9,9 +9,10 @@ import (
 )
 
 type Index interface {
-	Init(Name, Table string)
+	Init(Table string)
 	GetName() string
 	SetName(name string)
+	GenerateName(prefix string)
 
 	IsTemporary() bool
 	SetTemporaryFlag(flag bool)
@@ -23,9 +24,9 @@ type Index interface {
 
 	Traverse(orderColumns map[string]string, whereCallback func(column string, value key.BytesKey) bool, callback func(positions []int) bool) bool
 
-	GetColumnsForIndex(cond types.CompareConditions, order query.Order) ([]string, []string, map[string]bool)
+	GetColumnsForIndex(columns config.ColumnsConfig, cond types.CompareConditions, order query.Order) config.ColumnsConfig
 
-	BuildIndex(storage storage.Storage, cond types.CompareConditions, order query.Order) bool
+	BuildIndex(storage storage.Storage)
 
 	Load() error
 	Save() error

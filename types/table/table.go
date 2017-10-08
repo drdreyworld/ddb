@@ -1,7 +1,6 @@
 package table
 
 import (
-	"ddb/types"
 	"ddb/types/config"
 	"ddb/types/index"
 	"ddb/types/index/btree"
@@ -11,7 +10,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"ddb/types/query"
 	"fmt"
 )
 
@@ -97,8 +95,8 @@ func (t *Table) GetStorage() storage.Storage {
 func (t *Table) initIndexes() {
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
-		idx.Init(i.Name, t.name)
-		fmt.Println("set columns:", i.Cols)
+		idx.SetName(i.Name)
+		idx.Init(t.name)
 		idx.SetColumns(i.Cols)
 
 		t.indexes = append(t.indexes, idx)
@@ -114,7 +112,7 @@ func (t *Table) buildIndexes() {
 				continue
 			}
 
-			t.indexes[i].BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
+			t.indexes[i].BuildIndex(t.storage)
 			t.indexes[i].Save()
 		}
 	}
@@ -125,9 +123,10 @@ func (t *Table) ReBuildIndexes() {
 
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
-		idx.Init(i.Name, t.name)
+		idx.Init(t.name)
+		idx.SetName(i.Name)
 		idx.SetColumns(i.Cols)
-		idx.BuildIndex(t.storage, types.CompareConditions{}, query.Order{})
+		idx.BuildIndex(t.storage)
 		t.indexes = append(t.indexes, idx)
 	}
 }

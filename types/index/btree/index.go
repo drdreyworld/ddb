@@ -21,8 +21,7 @@ type Index struct {
 	temporary bool
 }
 
-func (i *Index) Init(Name, Table string) {
-	i.Name = Name
+func (i *Index) Init(Table string) {
 	i.Table = Table
 	i.tree.Degree = 200
 }
@@ -33,6 +32,13 @@ func (i *Index) GetName() string {
 
 func (i *Index) SetName(name string) {
 	i.Name = name
+}
+
+func (i *Index) GenerateName(prefix string) {
+	for j := range i.Columns {
+		prefix += "_" + i.Columns[j].Name
+	}
+	i.Name = prefix
 }
 
 func (i *Index) IsTemporary() bool {
@@ -134,6 +140,8 @@ func (i *Index) Set(positions []int, columnsKeys map[string]key.BytesKey) {
 func (i *Index) Traverse(orderColumns map[string]string, whereCallback func(column string, value key.BytesKey) bool, callback func(positions []int) bool) bool {
 
 	var traverse func(tree *BTree, depth int) bool
+	var direction string
+	var ok bool
 
 	traverse = func(tree *BTree, depth int) bool {
 		if tree.Root == nil {
@@ -141,7 +149,9 @@ func (i *Index) Traverse(orderColumns map[string]string, whereCallback func(colu
 		}
 
 		column := i.Columns[depth].Name
-		direction := orderColumns[column]
+		if direction, ok = orderColumns[column]; !ok {
+			direction = "ASC"
+		}
 
 		if direction == "ASC" {
 			return tree.Root.InfixTraverse(func(value *Value) bool {
@@ -177,128 +187,48 @@ func (i *Index) Traverse(orderColumns map[string]string, whereCallback func(colu
 	return traverse(&i.tree, 0)
 }
 
-func (i *Index) GetColumnsForIndex(cond types.CompareConditions, order query.Order) ([]string, []string, map[string]bool) {
-	allColumns := []string{}
-
-	indexColumns := []string{}
-	ignoreColumns := map[string]bool{}
-
-	indexColumnsMap := map[string]bool{}
-	allColumnsMap := map[string]bool{}
-
-	for i := range cond {
-		column := cond[i].Field
-		if _, ok := indexColumnsMap[column]; !ok {
-			indexColumnsMap[column] = true
-			indexColumns = append(indexColumns, column)
-		}
-		if _, ok := allColumnsMap[column]; !ok {
-			allColumnsMap[column] = true
-			allColumns = append(allColumns, column)
-		}
-	}
+func (i *Index) GetColumnsForIndex(columns config.ColumnsConfig, cond types.CompareConditions, order query.Order) (config.ColumnsConfig) {
+	indexColumns := config.ColumnsConfig{}
+	indexColumnsMap := columns.GetMap()
+	indexColumnsAdded := map[string]bool{}
 
 	for i := range order {
 		column := order[i].Column
-		if _, ok := indexColumnsMap[column]; !ok {
-			indexColumnsMap[column] = true
-			indexColumns = append(indexColumns, column)
-		}
-		if _, ok := allColumnsMap[column]; !ok {
-			allColumnsMap[column] = true
-			allColumns = append(allColumns, column)
-		}
-	}
-
-	//
-	//for i := range cond {
-	//	column := cond[i].Field
-	//
-	//	if _, ok := allColumnsMap[column]; !ok {
-	//		allColumnsMap[column] = true
-	//		allColumns = append(allColumns, column)
-	//	}
-	//
-	//	//if cond[i].Compartion == "=" {
-	//	//	if _, ok := indexColumnsMap[column]; ok {
-	//	//		ignoreColumns[column] = true
-	//	//		delete(indexColumnsMap, column)
-	//	//		for j := range indexColumns {
-	//	//			if indexColumns[j] == column {
-	//	//				indexColumns = append(
-	//	//					indexColumns[0:j],
-	//	//					indexColumns[j+1:]...,
-	//	//				)
-	//	//				break
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//	continue
-	//	//}
-	//}
-
-	return indexColumns, allColumns, ignoreColumns
-}
-
-func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions, order query.Order) bool {
-
-	allColumns := []string{}
-
-	indexColumns := []string{}
-	ignoreColumns := map[string]bool{}
-
-	if len(cond) == 0 && len(order) == 0 {
-		indexColumns = i.GetColumnNames()
-		allColumns = indexColumns
-	} else {
-		indexColumns, allColumns, ignoreColumns = i.GetColumnsForIndex(cond, order)
-
-		// индекс не нужен
-		if len(indexColumns) == 0 {
-			return false
-		}
-
-		cols := map[string]string{}
-		colsconf := config.ColumnsConfig{}
-
-		for _, col := range indexColumns {
-			cols[col] = col
-		}
-
-		if len(i.Columns) > 0 {
-			for _, col := range i.Columns {
-				if _, ok := cols[col.Name]; ok {
-					colsconf = append(colsconf, col)
-				}
+		if _, ok := indexColumnsMap[column]; ok {
+			if _, ok := indexColumnsAdded[column]; !ok {
+				indexColumns = append(indexColumns, indexColumnsMap[column])
+				indexColumnsAdded[column] = true
 			}
 		} else {
-			for _, col := range storage.GetColumnsConfig() {
-				if _, ok := cols[col.Name]; ok {
-					colsconf = append(colsconf, col)
-				}
-			}
+			panic("Column " + column + " not found")
 		}
-		fmt.Println("set columns for index: ", colsconf)
-		i.SetColumns(colsconf)
 	}
 
-	rowsCount := storage.GetRowsCount()
+	for i := range cond {
+		column := cond[i].Field
+		if _, ok := indexColumnsMap[column]; ok {
+			if _, ok := indexColumnsAdded[column]; !ok {
+				indexColumns = append(indexColumns, indexColumnsMap[column])
+				indexColumnsAdded[column] = true
+			}
+		} else {
+			panic("Column " + column + " not found")
+		}
+	}
 
+	return indexColumns
+}
+
+func (i *Index) BuildIndex(storage storage.Storage) {
+	rowsCount := storage.GetRowsCount()
 	row := map[string]key.BytesKey{}
 
 	for position := 0; position < rowsCount; position++ {
-
-		for _, columnName := range allColumns {
-			bytes := storage.GetBytes(position, columnName)
-
-			if _, ok := ignoreColumns[columnName]; !ok {
-				row[columnName] = bytes
-			}
+		for _, column := range i.Columns {
+			row[column.Name] = storage.GetBytes(position, column.Name)
 		}
-
 		i.Add(position, row)
 	}
-	return true
 }
 
 func (i *Index) GetFileName() string {

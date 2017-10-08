@@ -1,5 +1,7 @@
 package query
 
+import "ddb/types/config"
+
 type SelectExprs []SelectExpr
 
 type SelectExprType string
@@ -15,4 +17,31 @@ const (
 type SelectExpr struct {
 	Type  SelectExprType
 	Value string
+}
+
+func (exprs *SelectExprs) PrepareColumns(cc config.ColumnsConfig) {
+	// select * magic >>>
+	cols := SelectExprs{}
+	selallcols := false
+
+	for i := range *exprs {
+		if (*exprs)[i].Value == "*" {
+			if !selallcols {
+				for _, col := range cc {
+					cols = append(cols, SelectExpr{
+						Value: col.Name,
+						Type: SEL_EXPR_TYPE_COLUMN,
+					})
+				}
+				selallcols = true
+			} else {
+				continue;
+			}
+		} else {
+			cols = append(cols, (*exprs)[i])
+		}
+	}
+
+	(*exprs) = cols
+	// <<< select * magic
 }

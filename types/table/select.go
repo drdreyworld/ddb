@@ -11,6 +11,7 @@ import (
 	"ddb/types/query"
 	"ddb/types/dbresult"
 	"ddb/types/key"
+	"ddb/types/config"
 )
 
 func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition, err error) {
@@ -61,21 +62,12 @@ func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition,
 	return res, nil
 }
 
-func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.Index {
-	columnsMap := map[string]bool{}
-
-	for i := range cond {
-		columnsMap[cond[i].Field] = true
-	}
-
-	for i := range order {
-		columnsMap[order[i].Column] = true
-	}
-
+func (t *Table) GetIndex(indexColumns config.ColumnsConfig) index.Index {
 	for _, idx := range t.indexes {
-		if ok := len(columnsMap) == len(idx.GetColumns()); ok {
-			for _, column := range idx.GetColumns() {
-				if _, ok = columnsMap[column.Name]; !ok {
+		if ok := len(indexColumns) == len(idx.GetColumns()); ok {
+
+			for i, column := range idx.GetColumns() {
+				if ok = indexColumns[i].Name == column.Name; !ok {
 					break
 				}
 			}
@@ -90,81 +82,46 @@ func (t *Table) GetIndex(cond types.CompareConditions, order query.Order) index.
 
 func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 
-	// select * magic >>>
-	cols := query.SelectExprs{}
-	selallcols := false
-	for i := range sel.Columns {
-		if sel.Columns[i].Value == "*" {
-			if !selallcols {
-				for _, col := range t.config.Columns {
-					cols = append(cols, query.SelectExpr{
-						Value: col.Name,
-						Type: query.SEL_EXPR_TYPE_COLUMN,
-					})
-				}
-				selallcols = true
-			} else {
-				continue;
-			}
-		} else {
-			cols = append(cols, sel.Columns[i])
-		}
-	}
-
-	sel.Columns = cols
-	// <<< select * magic
-
+	sel.Columns.PrepareColumns(t.config.Columns)
 	sel.Limit.PrepareLimit(t.storage.GetRowsCount())
 
 	var cond types.CompareConditions
-	var whereCallback index.WhereCallback
 
 	if cond, err = t.CreateFindCond(sel.Where); err != nil {
 		return nil, err
 	}
 
-	ordersColumns := map[string]string{}
+	idx := CreateIndex(t.config.IndexType)
+	indexColumns := idx.GetColumnsForIndex(t.storage.GetColumnsConfig(), cond, sel.Order)
 
-	for _, order := range sel.Order {
-		ordersColumns[order.Column] = order.Direction
+	if len(indexColumns) == 0 {
+		return t.SearchWithoutIndex(cond, sel.Limit)
 	}
 
-	var idx index.Index
-
-	if idx = t.GetIndex(cond, sel.Order); idx == nil {
-		if len(ordersColumns) == 0 {
-			return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
-		}
-
+	if idx = t.GetIndex(indexColumns); idx == nil {
 		now := time.Now()
 		fmt.Print("Build index: ")
+
 		idx = CreateIndex(t.config.IndexType)
-		idx.Init("tmpidx", t.name)
-
-		if !idx.BuildIndex(t.storage, cond, sel.Order) {
-			fmt.Println("index not need: ", time.Now().Sub(now))
-			return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
-		}
-
-		idxname := ""
-		columns := idx.GetColumns()
-		for i := range columns {
-			idxname += "_" + columns[i].Name
-		}
-
+		idx.Init(t.name)
+		idx.SetColumns(indexColumns)
+		idx.BuildIndex(t.storage)
+		idx.GenerateName("tmpidx")
 		idx.SetTemporaryFlag(true)
-		idx.SetName("tmpidx" + idxname)
 
 		t.indexes = append(t.indexes, idx)
-
 		fmt.Println(time.Now().Sub(now))
 	}
 
-	fmt.Println("Use index:", idx.GetName())
+	return t.SearchByIndex(idx, sel, cond)
+}
 
+func (t *Table) SearchByIndex(idx index.Index, sel *query.Select, cond types.CompareConditions) (res *dbresult.DbResult, err error) {
+
+	ordersColumns := sel.Order.GetOrderMap()
 	conds := cond.GroupByColumns()
 
-	whereCallback = func(column string, value key.BytesKey) bool {
+	whereCallback := func(column string, value key.BytesKey) bool {
 		result := true
 		for _, cnd := range conds[column] {
 			if result = result && cnd.Compare(value); !result {
@@ -174,26 +131,18 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 		}
 		return result
 	}
-	for _, column := range idx.GetColumns() {
-		if _, ok := ordersColumns[column.Name]; !ok {
-			ordersColumns[column.Name] = "ASC"
-		}
-	}
 
 	positions := []int{}
 
 	st := time.Now()
-	fmt.Print("Traverse index: ")
+	fmt.Print("Search by index index: ", idx.GetName(), " ")
 	idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
-	//idx.Traverse(ordersColumns, nil, func(pos []int) bool {
 		for i := range pos {
 			positions = append(positions, pos[i])
-
 			if len(positions) >= sel.Limit.RowCount {
 				return false
 			}
 		}
-
 		return true
 	})
 	fmt.Println(time.Now().Sub(st))
@@ -204,7 +153,7 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 	return res, nil
 }
 
-func (t *Table) SearchWithoutIndex(cols query.SelectExprs, cond types.CompareConditions, limit query.Limit) (res *dbresult.DbResult, err error) {
+func (t *Table) SearchWithoutIndex(cond types.CompareConditions, limit query.Limit) (res *dbresult.DbResult, err error) {
 	now := time.Now()
 	fmt.Print("Search without index: ")
 

@@ -18,8 +18,16 @@ func (k BytesKey) Less(key BytesKey) (r bool) {
 	return k.Compare(key) == CMP_KEY_LESS
 }
 
+func (k BytesKey) LessOrEqual(key BytesKey) (r bool) {
+	return k.Compare(key) <= CMP_KEY_EQUAL
+}
+
 func (k BytesKey) Greather(key BytesKey) (r bool) {
 	return k.Compare(key) == CMP_KEY_GREATHER
+}
+
+func (k BytesKey) GreatherOrEqual(key BytesKey) (r bool) {
+	return k.Compare(key) >= CMP_KEY_EQUAL
 }
 
 func (k BytesKey) Compare(key BytesKey) (r int) {
