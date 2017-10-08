@@ -9,9 +9,14 @@ import (
 )
 
 type Index interface {
-	Init(Table string)
+	Init()
+
+	SetTableName(table string)
+	GetTableName() string
+
 	GetName() string
 	SetName(name string)
+
 	GenerateName(prefix string)
 
 	IsTemporary() bool
@@ -31,10 +36,6 @@ type Index interface {
 	Load() error
 	Save() error
 }
-
-type WhereCallback func(column string, value key.BytesKey) bool
-
-type TraverseCallback func(positions []int) bool
 
 type Indexes []Index
 

@@ -95,8 +95,10 @@ func (t *Table) GetStorage() storage.Storage {
 func (t *Table) initIndexes() {
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
+		idx.Init()
+
 		idx.SetName(i.Name)
-		idx.Init(t.name)
+		idx.SetTableName(t.name)
 		idx.SetColumns(i.Cols)
 
 		t.indexes = append(t.indexes, idx)
@@ -123,8 +125,9 @@ func (t *Table) ReBuildIndexes() {
 
 	for _, i := range t.config.Indexes {
 		idx := CreateIndex(i.Type)
-		idx.Init(t.name)
+		idx.Init()
 		idx.SetName(i.Name)
+		idx.SetTableName(t.name)
 		idx.SetColumns(i.Cols)
 		idx.BuildIndex(t.storage)
 		t.indexes = append(t.indexes, idx)

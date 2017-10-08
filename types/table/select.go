@@ -103,7 +103,8 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 		fmt.Print("Build index: ")
 
 		idx = CreateIndex(t.config.IndexType)
-		idx.Init(t.name)
+		idx.Init()
+		idx.SetTableName(t.name)
 		idx.SetColumns(indexColumns)
 		idx.BuildIndex(t.storage)
 		idx.GenerateName("tmpidx")

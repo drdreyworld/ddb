@@ -21,9 +21,16 @@ type Index struct {
 	temporary bool
 }
 
-func (i *Index) Init(Table string) {
-	i.Table = Table
+func (i *Index) Init() {
 	i.tree.Degree = 200
+}
+
+func (i *Index) SetTableName(table string) {
+	i.Table = table
+}
+
+func (i *Index) GetTableName() string {
+	return i.Table
 }
 
 func (i *Index) GetName() string {
