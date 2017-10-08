@@ -9,30 +9,6 @@ import (
 	"strconv"
 )
 
-func (t *Table) PrepareRow(row interface{}) (result map[string]key.BytesKey, err error) {
-	result = make(map[string]key.BytesKey)
-
-	rvalue := reflect.ValueOf(row)
-	rtype := reflect.TypeOf(row)
-
-	for _, col := range t.config.Columns {
-
-		if value, ok := rtype.FieldByName(col.Name); !ok {
-			return nil, errors.New("Can't get row column by name '" + col.Name + "' in row ")
-		} else {
-			if value.Type.Name() == col.Type {
-				result[col.Name], err = funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, errors.New("Invalid field type for column '" + col.Name + "': '" + value.Type.Name() + "'")
-			}
-		}
-	}
-	return result, nil
-}
-
 func (t *Table) Insert(ins *query.Insert) (err error) {
 
 	for i := 0; i < len(ins.Values); i++ {
@@ -83,13 +59,26 @@ func (t *Table) Insert(ins *query.Insert) (err error) {
 	return nil
 }
 
-
-
 func (t *Table) InsertOld(data interface{}, addToIndex bool) (err error) {
-	var row map[string]key.BytesKey
+	row := make(map[string]key.BytesKey)
 
-	if row, err = t.PrepareRow(data); err != nil {
-		return err
+	rvalue := reflect.ValueOf(data)
+	rtype := reflect.TypeOf(data)
+
+	for _, col := range t.config.Columns {
+
+		if value, ok := rtype.FieldByName(col.Name); !ok {
+			return errors.New("Can't get row column by name '" + col.Name + "' in row ")
+		} else {
+			if value.Type.Name() == col.Type {
+				row[col.Name], err = funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
+				if err != nil {
+					return err
+				}
+			} else {
+				return errors.New("Invalid field type for column '" + col.Name + "': '" + value.Type.Name() + "'")
+			}
+		}
 	}
 
 	rowid := t.storage.GetRowsCount()

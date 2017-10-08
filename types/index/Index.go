@@ -11,6 +11,10 @@ import (
 type Index interface {
 	Init(Name, Table string)
 	GetName() string
+	SetName(name string)
+
+	IsTemporary() bool
+	SetTemporaryFlag(flag bool)
 
 	Add(position int, columnsKeys map[string]key.BytesKey)
 

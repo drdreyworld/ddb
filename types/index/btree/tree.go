@@ -46,24 +46,3 @@ func (tree *BTree) Insert(value *Value) {
 	}
 	tree.Root.Insert(tree, value)
 }
-
-func (tree *BTree) InsertIfNotExists(value *Value) *Value {
-	if tree.Root == nil {
-		tree.Root = tree.newItem()
-		tree.Root.Leaf = true
-		tree.Root.Values[0] = value
-		tree.Root.Count = 1
-		return tree.Root.Values[0]
-	}
-
-	if tree.Root.Count == 2*tree.Degree-1 {
-		newRoot := tree.newItem()
-		newRoot.Leaf = false
-		newRoot.Count = 0
-		newRoot.Items[0] = tree.Root
-
-		tree.Root = newRoot
-		tree.Root.SplitChild(tree, 0)
-	}
-	return tree.Root.InsertIfNotExists(tree, value)
-}

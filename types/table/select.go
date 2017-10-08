@@ -134,35 +134,46 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 	if idx = t.GetIndex(cond, sel.Order); idx == nil {
 		if len(ordersColumns) == 0 {
 			return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
-		} else {
-			now := time.Now()
-			fmt.Print("Build index: ")
-			idx = CreateIndex(t.config.IndexType)
-			idx.Init("tmpidx", t.name)
-
-			if !idx.BuildIndex(t.storage, cond, sel.Order) {
-				fmt.Println("index not need: ", time.Now().Sub(now))
-				return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
-			}
-
-			fmt.Println(time.Now().Sub(now))
-			whereCallback = nil
 		}
-	} else {
-		fmt.Println("Use index:", idx.GetName())
-		conds := cond.GroupByColumns()
 
-		whereCallback = func(column string, value key.BytesKey) bool {
-			result := true
-			for _, cnd := range conds[column] {
-				if result = result && cnd.Compare(value); !result {
-					return result
-				}
-			}
-			return result
+		now := time.Now()
+		fmt.Print("Build index: ")
+		idx = CreateIndex(t.config.IndexType)
+		idx.Init("tmpidx", t.name)
+
+		if !idx.BuildIndex(t.storage, cond, sel.Order) {
+			fmt.Println("index not need: ", time.Now().Sub(now))
+			return t.SearchWithoutIndex(sel.Columns, cond, sel.Limit)
 		}
+
+		idxname := ""
+		columns := idx.GetColumns()
+		for i := range columns {
+			idxname += "_" + columns[i].Name
+		}
+
+		idx.SetTemporaryFlag(true)
+		idx.SetName("tmpidx" + idxname)
+
+		t.indexes = append(t.indexes, idx)
+
+		fmt.Println(time.Now().Sub(now))
 	}
 
+	fmt.Println("Use index:", idx.GetName())
+
+	conds := cond.GroupByColumns()
+
+	whereCallback = func(column string, value key.BytesKey) bool {
+		result := true
+		for _, cnd := range conds[column] {
+			if result = result && cnd.Compare(value); !result {
+				return result
+			}
+
+		}
+		return result
+	}
 	for _, column := range idx.GetColumns() {
 		if _, ok := ordersColumns[column.Name]; !ok {
 			ordersColumns[column.Name] = "ASC"

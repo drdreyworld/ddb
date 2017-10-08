@@ -1,23 +1,24 @@
 package btree
 
 import (
+	"bufio"
 	"ddb/types"
+	"ddb/types/config"
+	"ddb/types/funcs"
 	"ddb/types/key"
 	"ddb/types/query"
 	"ddb/types/storage"
 	"fmt"
-	"time"
 	"os"
-	"bufio"
-	"ddb/types/funcs"
-	"ddb/types/config"
+	"time"
 )
 
 type Index struct {
-	Table   string
-	Name    string
-	Columns config.ColumnsConfig
-	tree    BTree
+	Table     string
+	Name      string
+	Columns   config.ColumnsConfig
+	tree      BTree
+	temporary bool
 }
 
 func (i *Index) Init(Name, Table string) {
@@ -28,6 +29,18 @@ func (i *Index) Init(Name, Table string) {
 
 func (i *Index) GetName() string {
 	return i.Name
+}
+
+func (i *Index) SetName(name string) {
+	i.Name = name
+}
+
+func (i *Index) IsTemporary() bool {
+	return i.temporary
+}
+
+func (i *Index) SetTemporaryFlag(flag bool) {
+	i.temporary = flag
 }
 
 func (i *Index) GetColumns() config.ColumnsConfig {
@@ -67,7 +80,7 @@ func (i *Index) Add(position int, columnsKeys map[string]key.BytesKey) {
 				Key: columnsKeys[column],
 			}
 
-			if j < colCount - 1 {
+			if j < colCount-1 {
 				value.Tree = &BTree{
 					Degree: i.tree.Degree,
 				}
@@ -100,7 +113,7 @@ func (i *Index) Set(positions []int, columnsKeys map[string]key.BytesKey) {
 		}
 
 		if value = tree.Find(columnsKeys[column]); value == nil {
-			if j < colCount - 1 {
+			if j < colCount-1 {
 				value = &Value{
 					Key: columnsKeys[column],
 					Tree: &BTree{
@@ -109,7 +122,7 @@ func (i *Index) Set(positions []int, columnsKeys map[string]key.BytesKey) {
 				}
 			} else {
 				value = &Value{
-					Key: columnsKeys[column],
+					Key:  columnsKeys[column],
 					Data: positions,
 				}
 			}
@@ -173,6 +186,18 @@ func (i *Index) GetColumnsForIndex(cond types.CompareConditions, order query.Ord
 	indexColumnsMap := map[string]bool{}
 	allColumnsMap := map[string]bool{}
 
+	for i := range cond {
+		column := cond[i].Field
+		if _, ok := indexColumnsMap[column]; !ok {
+			indexColumnsMap[column] = true
+			indexColumns = append(indexColumns, column)
+		}
+		if _, ok := allColumnsMap[column]; !ok {
+			allColumnsMap[column] = true
+			allColumns = append(allColumns, column)
+		}
+	}
+
 	for i := range order {
 		column := order[i].Column
 		if _, ok := indexColumnsMap[column]; !ok {
@@ -185,31 +210,32 @@ func (i *Index) GetColumnsForIndex(cond types.CompareConditions, order query.Ord
 		}
 	}
 
-	for i := range cond {
-		column := cond[i].Field
-
-		if _, ok := allColumnsMap[column]; !ok {
-			allColumnsMap[column] = true
-			allColumns = append(allColumns, column)
-		}
-
-		if cond[i].Compartion == "=" {
-			if _, ok := indexColumnsMap[column]; ok {
-				ignoreColumns[column] = true
-				delete(indexColumnsMap, column)
-				for j := range indexColumns {
-					if indexColumns[j] == column {
-						indexColumns = append(
-							indexColumns[0:j],
-							indexColumns[j+1:]...,
-						)
-						break
-					}
-				}
-			}
-			continue
-		}
-	}
+	//
+	//for i := range cond {
+	//	column := cond[i].Field
+	//
+	//	if _, ok := allColumnsMap[column]; !ok {
+	//		allColumnsMap[column] = true
+	//		allColumns = append(allColumns, column)
+	//	}
+	//
+	//	//if cond[i].Compartion == "=" {
+	//	//	if _, ok := indexColumnsMap[column]; ok {
+	//	//		ignoreColumns[column] = true
+	//	//		delete(indexColumnsMap, column)
+	//	//		for j := range indexColumns {
+	//	//			if indexColumns[j] == column {
+	//	//				indexColumns = append(
+	//	//					indexColumns[0:j],
+	//	//					indexColumns[j+1:]...,
+	//	//				)
+	//	//				break
+	//	//			}
+	//	//		}
+	//	//	}
+	//	//	continue
+	//	//}
+	//}
 
 	return indexColumns, allColumns, ignoreColumns
 }
@@ -252,6 +278,7 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 				}
 			}
 		}
+		fmt.Println("set columns for index: ", colsconf)
 		i.SetColumns(colsconf)
 	}
 
@@ -259,29 +286,17 @@ func (i *Index) BuildIndex(storage storage.Storage, cond types.CompareConditions
 
 	row := map[string]key.BytesKey{}
 
-	conds := cond.GroupByColumns()
-
 	for position := 0; position < rowsCount; position++ {
-		matched := true
 
 		for _, columnName := range allColumns {
 			bytes := storage.GetBytes(position, columnName)
-
-			for _, condition := range conds[columnName] {
-				matched = matched && condition.Compare(bytes)
-				if !matched {
-					break
-				}
-			}
 
 			if _, ok := ignoreColumns[columnName]; !ok {
 				row[columnName] = bytes
 			}
 		}
 
-		if matched {
-			i.Add(position, row)
-		}
+		i.Add(position, row)
 	}
 	return true
 }
@@ -307,14 +322,14 @@ func (i *Index) Load() error {
 	}
 
 	fileSize := int(s.Size())
-	blockSize := 100 * 1024 * 1024;
+	blockSize := 100 * 1024 * 1024
 
 	colCount := len(i.Columns)
 	bytes := make([]byte, blockSize)
 	row := map[string]key.BytesKey{}
 
 	readMore := func(position, need, bytesCount int) (error, int, int) {
-		for position + need > bytesCount {
+		for position+need > bytesCount {
 			tail := bytes[position:bytesCount]
 			bytes = make([]byte, blockSize)
 			bytesCount, err = f.Read(bytes)
@@ -326,12 +341,10 @@ func (i *Index) Load() error {
 			bytes = append(tail, bytes...)
 			position = 0
 		}
-		//if position + need > bytesCount {
-		//}
 		return nil, position, bytesCount
 	}
 
-	columnLengths := 5 // count of positions
+	columnLengths := 5 // length for positions count int32
 
 	for j := 0; j < colCount; j++ {
 		columnLengths += 5 + i.Columns[j].Length
@@ -357,7 +370,7 @@ func (i *Index) Load() error {
 		for j := 0; j < colCount; j++ {
 
 			l := i.Columns[j].Length
-			p+=5
+			p += 5
 
 			//fmt.Println("key", bytes[p : p+l])
 			row[i.Columns[j].Name] = key.BytesKey(bytes[p : p+l])
@@ -368,7 +381,7 @@ func (i *Index) Load() error {
 		l := int(funcs.Int32FromBytes(bytes[p : p+5]))
 		p += 5
 
-		err, p, bytesCount = readMore(p, l * 5, bytesCount)
+		err, p, bytesCount = readMore(p, l*5, bytesCount)
 		if err != nil {
 			if err.Error() == "EOF" {
 				break
@@ -391,6 +404,11 @@ func (i *Index) Load() error {
 }
 
 func (i *Index) Save() error {
+	if i.IsTemporary() {
+		fmt.Println("Don't save temporary index", i.GetName())
+		return nil
+	}
+
 	st := time.Now()
 	fmt.Println("Save index table", i.Table, "idx", i.Name)
 	fmt.Println("FileName:", i.GetFileName())
@@ -413,7 +431,7 @@ func (i *Index) Save() error {
 		for i := 0; i < item.Count; i++ {
 			value := item.Values[i]
 			keys[depth] = value.Key
-			if value.Tree != nil && value.Tree.Root != nil{
+			if value.Tree != nil && value.Tree.Root != nil {
 				depth++
 				value.Tree.Root.InfixTraverseItems(fn)
 				depth--
