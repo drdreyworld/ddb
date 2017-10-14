@@ -194,7 +194,7 @@ func (i *Index) Traverse(orderColumns map[string]string, whereCallback func(colu
 	return traverse(&i.tree, 0)
 }
 
-func (i *Index) GetColumnsForIndex(columns config.ColumnsConfig, cond types.CompareConditions, order query.Order) (config.ColumnsConfig) {
+func (i *Index) GetColumnsForIndex(columns config.ColumnsConfig, cond types.CompareConditions, order query.Order) config.ColumnsConfig {
 	indexColumns := config.ColumnsConfig{}
 	indexColumnsMap := columns.GetMap()
 	indexColumnsAdded := map[string]bool{}

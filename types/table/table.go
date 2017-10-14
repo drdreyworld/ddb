@@ -81,7 +81,7 @@ func (t *Table) Save() {
 		panic(err)
 	}
 
-	if err := t.storage.Save(); err != nil {
+	if err := t.storage.Flush(); err != nil {
 		panic(err)
 	}
 

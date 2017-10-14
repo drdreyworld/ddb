@@ -20,4 +20,6 @@ type Storage interface {
 	Init(tableName string, cfg config.ColumnsConfig)
 	Load() error
 	Save() error
+
+	Flush() error
 }

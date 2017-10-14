@@ -3,6 +3,9 @@ package colstor
 import (
 	"ddb/types/config"
 	"strconv"
+	"sync"
+	"time"
+	"fmt"
 )
 
 type Columns []Column
@@ -33,6 +36,21 @@ func (c *Columns) Save() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *Columns) Flush() error {
+	t := time.Now()
+	fmt.Print("Flush columns: ")
+	var mutex sync.Mutex
+	mutex.Lock()
+	for i := range *c {
+		if err := (*c)[i].Flush(); err != nil {
+			return err
+		}
+	}
+	mutex.Unlock()
+	fmt.Print(time.Now().Sub(t), "\n")
 	return nil
 }
 
@@ -116,3 +134,4 @@ func (c *Columns) GetBytes(position int, column string) []byte {
 func (c *Columns) SetBytes(position int, column string, value []byte) {
 	c.ByName(column).SetBytes(position, value)
 }
+

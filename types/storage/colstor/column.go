@@ -3,6 +3,7 @@ package colstor
 import (
 	"ddb/types/funcs"
 	"os"
+	"sync"
 )
 
 type Column struct {
@@ -11,6 +12,7 @@ type Column struct {
 	Type   string
 	Table  string
 	bytes  []byte
+	changed map[int]bool
 }
 
 func (c *Column) GetFileName() string {
@@ -33,6 +35,15 @@ func (c *Column) SetBytes(index int, value []byte) {
 	}
 
 	copy(c.bytes[index*c.Length:], value)
+
+	var mutex sync.Mutex
+
+	mutex.Lock()
+	if c.changed == nil {
+		c.changed = map[int]bool{}
+	}
+	c.changed[index] = true
+	mutex.Unlock()
 }
 
 func (c *Column) GetBytes(index int) []byte {
@@ -47,12 +58,6 @@ func (c *Column) GetValue(index int) interface{} {
 	case "int32":
 		return funcs.Int32FromBytes(c.GetBytes(index))
 		break
-	//case "string":
-	//	return btree.StringKey(funcs.StringFromNullByte(c.GetBytes(index)))
-	//	break
-	//case "int32":
-	//	return btree.IntKey(funcs.Int32FromBytes(c.GetBytes(index)))
-	//	break
 	}
 	return nil
 }
@@ -87,6 +92,28 @@ func (c *Column) Save() error {
 
 	if _, err := f.Write(c.bytes); err != nil {
 		return err
+	}
+
+	return f.Sync()
+}
+
+
+func (c *Column) Flush() error {
+	if c.changed == nil {
+		return nil
+	}
+
+	f, err := os.OpenFile(c.GetFileName(), os.O_WRONLY, 0777)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for pos := range c.changed {
+		f.Seek(int64(pos * c.Length), 0)
+		if _, err := f.Write(c.GetBytes(pos)); err != nil {
+			return err
+		}
 	}
 
 	return f.Sync()
