@@ -32,6 +32,19 @@ func StringFromNullByte(b []byte) string {
 	//return string(b)
 }
 
+func Uint32ToBytes(i uint32) []byte {
+	return []byte{
+		byte(i >> 24),
+		byte(i >> 16),
+		byte(i >> 8),
+		byte(i),
+	}
+}
+
+func Uint32FromBytes(b []byte) int32 {
+	return int32(uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24)
+}
+
 func Int32ToBytes(i int32) []byte {
 	var b byte = 0
 	if i > -1 {
@@ -80,4 +93,12 @@ func ValueToBytes(v interface{}, length int) ([]byte, error) {
 	}
 
 	return b1, nil
+}
+
+func DivRoundUp(x, y int) (z int) {
+	z = x / y
+	if x % y > 0 {
+		z++
+	}
+	return z
 }
