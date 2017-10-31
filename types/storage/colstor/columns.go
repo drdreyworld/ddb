@@ -54,6 +54,10 @@ func (c *Columns) Flush() error {
 	return nil
 }
 
+func (c *Columns) Close() error {
+	return nil
+}
+
 func (c *Columns) ByName(name string) *Column {
 	for i := range *c {
 		if (*c)[i].Name == name {

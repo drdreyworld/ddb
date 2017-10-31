@@ -32,6 +32,8 @@ func main() {
 	queryProcessor = &queryprocessor.QueryProcessor{}
 	queryProcessor.Init()
 
+	defer queryProcessor.CloseTables()
+
 	listener := server.Listener{Host: *Host, Port: *Port}
 	listener.HandleFunc = func(conn net.Conn) {
 		mysql41.NewConnection(conn).Handle(&queryparser.Parser{}, queryProcessor)

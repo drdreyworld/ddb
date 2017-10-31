@@ -10,7 +10,6 @@ type Storage interface {
 	GetValueByColumnIndex(position int, columnIndex int) interface{}
 	GetBytesByColumnIndex(position int, columnIndex int) []byte
 
-	GetValue(position int, column string) interface{}
 	GetBytes(position int, column string) []byte
 	SetBytes(position int, column string, value []byte)
 
@@ -22,4 +21,5 @@ type Storage interface {
 	Save() error
 
 	Flush() error
+	Close() error
 }

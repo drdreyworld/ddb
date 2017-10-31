@@ -20,6 +20,12 @@ func (qp *QueryProcessor) Init() {
 	qp.states = map[string]string{}
 }
 
+func (qp *QueryProcessor) CloseTables() {
+	for i := range qp.tables {
+		qp.tables[i].Close()
+	}
+}
+
 func (qp *QueryProcessor) GetState(name string) (state string) {
 	var ok bool
 	if state, ok = qp.states[name]; !ok {

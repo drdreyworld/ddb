@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"ddb/types"
 	"ddb/types/config"
-	"ddb/types/funcs"
 	"ddb/types/key"
 	"ddb/types/query"
 	"ddb/types/storage"
 	"fmt"
 	"os"
 	"time"
+	"github.com/drdreyworld/smconv"
 )
 
 type Index struct {
@@ -315,7 +315,7 @@ func (i *Index) Load() error {
 		}
 
 		//fmt.Println("length", bytes[p : p+5])
-		l := int(funcs.Int32FromBytes(bytes[p : p+5]))
+		l := int(smconv.Int32FromBytes(bytes[p : p+5]))
 		p += 5
 
 		err, p, bytesCount = readMore(p, l*5, bytesCount)
@@ -328,7 +328,7 @@ func (i *Index) Load() error {
 
 		positions := make([]int, l)
 		for k := 0; k < l; k++ {
-			positions[k] = int(funcs.Int32FromBytes(bytes[p : p+5]))
+			positions[k] = int(smconv.Int32FromBytes(bytes[p : p+5]))
 			p += 5
 		}
 		//fmt.Println("load positions:", positions)
@@ -375,14 +375,14 @@ func (i *Index) Save() error {
 			} else if value.Data != nil {
 				// save keys
 				for j := 0; j < len(keys); j++ {
-					w.Write(funcs.Int32ToBytes(int32(len(keys[j]))))
+					w.Write(smconv.Int32ToBytes(int32(len(keys[j]))))
 					w.Write(keys[j])
 				}
 				// save positions
-				w.Write(funcs.Int32ToBytes(int32(len(value.Data))))
+				w.Write(smconv.Int32ToBytes(int32(len(value.Data))))
 				//fmt.Println("save positions:", value.Data)
 				for j := 0; j < len(value.Data); j++ {
-					w.Write(funcs.Int32ToBytes(int32(value.Data[j])))
+					w.Write(smconv.Int32ToBytes(int32(value.Data[j])))
 				}
 			}
 		}

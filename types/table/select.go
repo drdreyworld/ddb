@@ -1,17 +1,16 @@
 package table
 
 import (
-	"ddb/types/funcs"
 	"ddb/types"
 	"ddb/types/index"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 	"ddb/types/query"
 	"ddb/types/dbresult"
 	"ddb/types/key"
 	"ddb/types/config"
+	"github.com/drdreyworld/smconv"
 )
 
 func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition, err error) {
@@ -22,42 +21,11 @@ func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition,
 			return nil, errors.New("Unknown column " + where[i].OperandA)
 		}
 
-		switch c.Type {
-
-		case "int32":
-			val, err := strconv.Atoi(where[i].OperandB)
-			if err != nil {
-				return nil, err
-			}
-
-			ival, err := funcs.ValueToBytes(val, c.Length)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, types.CompareCondition{
-				Field:      where[i].OperandA,
-				Value:      ival,
-				Compartion: where[i].Compartion,
-			})
-			break
-
-		case "string":
-			sval, err := funcs.ValueToBytes(where[i].OperandB, c.Length)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, types.CompareCondition{
-				Field:      where[i].OperandA,
-				Value:      sval,
-				Compartion: where[i].Compartion,
-			})
-
-			break
-		default:
-			return nil, errors.New("Unknown column type " + c.Type)
-		}
+		res = append(res, types.CompareCondition{
+			Field:      where[i].OperandA,
+			Value:      smconv.StringValueToBytes(where[i].OperandB, c.Type, c.Length),
+			Compartion: where[i].Compartion,
+		})
 	}
 	return res, nil
 }

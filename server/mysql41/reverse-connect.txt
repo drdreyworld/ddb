@@ -1,0 +1,18 @@
+[
+    length   : 74, 0, 0
+    sequence : 0
+    protover : 10
+    srvname  : 53 46 55 46 49 57 0
+    connid   : 10 0 0 0
+    scramble : 88 62 79 121 115 48 3 116 0
+    server capabilities (two lower bytes) : 255 255
+    server character set : 33
+    server status        : 2 0
+    server capabilities (two upper bytes) : 255 193
+
+    length of the scramble: 21
+    reserved 10 bytes: 0 0 0 0 0 0 0 0 0 0
+
+    rest of the plugin provided data (at least 12 bytes + zero):  115 15 3 49 44 117 116 26 123 54 5 116 0
+    mysql_native_password : 109 121 115 113 108 95 110 97 116 105 118 101 95 112 97 115 115 119 111 114 100 0
+]

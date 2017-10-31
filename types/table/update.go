@@ -1,10 +1,10 @@
 package table
 
 import (
-	"ddb/types/funcs"
 	"reflect"
 	"errors"
 	"log"
+	"github.com/drdreyworld/smconv"
 )
 
 func (t *Table) Update(id int, row interface{}) (err error) {
@@ -21,10 +21,7 @@ func (t *Table) Update(id int, row interface{}) (err error) {
 			log.Fatalln("Can't get row column by name '", col.Name, "' in row ", row)
 		} else {
 			if value.Type.Name() == col.Type {
-				b, err := funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
-				if err != nil {
-					panic("Can't convert value to bytes")
-				}
+				b := smconv.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
 				t.storage.SetBytes(id, col.Name, b)
 			} else {
 				log.Fatalln("Invalid field type for column", col.Name, ": ", value.Type.Name())

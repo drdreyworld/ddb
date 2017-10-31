@@ -1,27 +1,31 @@
 {
-"name":"",
-"storage":"colstor",
-"indexType":"btree",
-"columns":[
-    {"name":"FName","length":50,"type":"string"},
-    {"name":"LName","length":50,"type":"string"},
-    {"name":"Id","length":5,"type":"int32"}
-],
-"max_id":0,
-"indexes":[
-    {
-        "name":"UserId",
-        "type":"btree",
-        "columns":[
-            {"name":"Id","length":5,"type":"int32"}
-        ]
-    },
-    {
-        "name":"UserName",
-        "type":"btree",
-        "columns":[
-            {"name":"FName","length":50,"type":"string"},
-            {"name":"LName","length":50,"type":"string"}
-        ]
-    }
-]}
+    "name"      : "",
+    "storage"   : "bptree",
+    "indexType" : "btree",
+
+    "columns"   : [
+        {"name":"FName","length":50,"type":"string"},
+        {"name":"LName","length":50,"type":"string"},
+        {"name":"Id","length":5,"type":"int32"}
+    ],
+
+    "max_id" : 0,
+
+    "indexes" : [
+        {
+            "name":"UserId",
+            "type":"btree",
+            "columns":[
+                {"name":"Id","length":5,"type":"int32"}
+            ]
+        },
+        {
+            "name":"UserName",
+            "type":"btree",
+            "columns":[
+                {"name":"FName","length":50,"type":"string"},
+                {"name":"LName","length":50,"type":"string"}
+            ]
+        }
+    ]
+}

@@ -6,6 +6,7 @@ import (
 	"ddb/types/index/btree"
 	"ddb/types/storage"
 	"ddb/types/storage/colstor"
+	"ddb/types/storage/bptree"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -34,6 +35,8 @@ func CreateIndex(indexType string) index.Index {
 
 func CreateStorage(storageType string) storage.Storage {
 	switch storageType {
+	case "bptree":
+		return &bptree.Storage{}
 	case "colstor":
 		return &colstor.Columns{}
 	default:
@@ -76,6 +79,10 @@ func CreateTable(name string, config config.TableConfig) (*Table, error) {
 	return t, nil
 }
 
+func (t *Table) Close() {
+	t.storage.Close()
+	// t.indexes.Save()
+}
 func (t *Table) Save() {
 	if err := t.saveTableInfo(); err != nil {
 		panic(err)

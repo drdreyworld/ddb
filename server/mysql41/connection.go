@@ -5,6 +5,7 @@ import (
 	"ddb/types/queryprocessor"
 	"ddb/types/rowset"
 	"net"
+	"log"
 )
 
 type Connection struct {
@@ -35,7 +36,7 @@ func (c *Connection) nextSequence() byte {
 var err error
 
 func (c *Connection) resetConnStatus() {
-	c.status = statusInAutocommit
+	c.status = 0
 	c.affecterRows = 0
 	c.lastInsertId = 0
 	c.warningsCount = 0
@@ -61,7 +62,17 @@ func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocesso
 			return
 		}
 
-		// fmt.Println("q:", p.readQuery())
+		log.Println("query:", p.readQuery())
+
+		if p.readQuery() == "SET NAMES utf8" {
+			c.writeOkPacket()
+			continue
+		}
+
+		if p.readQuery() == "SELECT DATABASE()" {
+			c.writeOkPacket()
+			continue
+		}
 
 		query, err := parser.Parse(p.readQuery())
 		if err != nil {
@@ -111,13 +122,14 @@ func (c *Connection) writeInitialPacket() {
 
 	// @todo узнать формат
 	// thread id OR connection id
-	p.appendBytes(0, 0, 0, 11)
+	p.appendBytes(10, 0, 0, 0)
 
 	// first 8 bytes of the plugin provided data (scramble)
 	p.appendStringNulByte("12345678")
 
 	// server capabilities (two lower bytes)
 	p.appendIntTwoBytes(int(clientProtocol41))
+	//p.appendBytes(255, 255)
 
 	// @todo узнать список возможных
 	// server character set
@@ -150,6 +162,7 @@ func (c *Connection) readAuthPacket() (err error) {
 	p := Packet{}
 
 	if err = p.readBytes(c); err != nil {
+		log.Println("readAuthPacket error", err)
 		return err
 	}
 
@@ -167,7 +180,8 @@ func (c *Connection) readAuthPacket() (err error) {
 
 	pos = 13 + 23
 	ap.user, pos = p.readStringNulByte(pos)
-	ap.database, pos = p.readStringNulByte(pos + 2)
+	// some system trash
+	// ap.database, pos = p.readStringNulByte(pos + 2)
 
 	return nil
 }
@@ -178,21 +192,29 @@ func (c *Connection) writeRowset(rowset rowset.Rowset) {
 
 	c.writeCmdPacket(byte(len(rowset.Cols)))
 
+	// https://github.com/php/php-src/blob/master/ext/mysqlnd/mysqlnd_wireprotocol.c#L1305
 	for i := range rowset.Cols {
 		col := rowset.Cols[i]
 		p.data = []byte{0, 0, 0, c.nextSequence()}
-		p.appendBytes(0, 0, 0, 0)
-		//p.appendStringLengthEncoded("def")
-		//p.appendStringLengthEncoded("schema")
-		//p.appendStringLengthEncoded("users")
-		//p.appendStringLengthEncoded("alias_for_"+col.Name)
+		p.appendStringLengthEncoded("def")
+		p.appendStringLengthEncoded("schema")
+		p.appendStringLengthEncoded("table")
+		p.appendStringLengthEncoded("table-alias")
 		p.appendStringLengthEncoded(col.Name)
-		p.appendBytes(0, 12, 33, 0, 9, 0, 0, 0, 253, 1, 0, 31, 0, 0)
+		p.appendStringLengthEncoded(col.Name)
+		p.appendBytes(12) // length of next part
+		p.appendBytes(33, 0) // charset
+		p.appendBytes(180, 0, 0, 0) // length
+		p.appendBytes(254) // type
+		p.appendBytes(131, 64) // flags
+		p.appendBytes(0) // decimals
+		p.appendBytes(0, 0) // filter
 		p.calcucateLength()
 		c.connection.Write(p.data)
 	}
 
 	for i := range rowset.Rows {
+		p = Packet{}
 		p.data = []byte{0, 0, 0, c.nextSequence()}
 		for j := range rowset.Rows[i] {
 			p.appendStringLengthEncoded(rowset.Rows[i][j])
@@ -201,6 +223,7 @@ func (c *Connection) writeRowset(rowset rowset.Rowset) {
 		c.connection.Write(p.data)
 	}
 
+	c.warningsCount = 0
 	c.status = c.status | statusLastRowSent
 	c.writeEOF()
 }
@@ -221,6 +244,7 @@ func (c *Connection) writeCmdPacket(cmd byte) {
 	p.appendIntegerLengthEncoded(uint64(c.lastInsertId))
 	p.appendBytes(byte(c.status), byte(c.status>>8))
 	p.appendIntegerLengthEncoded(uint64(c.warningsCount))
+	p.appendBytes(0)
 
 	p.calcucateLength()
 	c.connection.Write(p.data)

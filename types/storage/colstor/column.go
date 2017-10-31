@@ -1,9 +1,9 @@
 package colstor
 
 import (
-	"ddb/types/funcs"
 	"os"
 	"sync"
+	"github.com/drdreyworld/smconv"
 )
 
 type Column struct {
@@ -20,11 +20,7 @@ func (c *Column) GetFileName() string {
 }
 
 func (c *Column) SetValue(index int, val interface{}) {
-	if value, err := funcs.ValueToBytes(val, c.Length); err != nil {
-		panic(err)
-	} else {
-		c.SetBytes(index, value)
-	}
+	c.SetBytes(index, smconv.ValueToBytes(val, c.Length))
 }
 
 func (c *Column) SetBytes(index int, value []byte) {
@@ -53,10 +49,10 @@ func (c *Column) GetBytes(index int) []byte {
 func (c *Column) GetValue(index int) interface{} {
 	switch c.Type {
 	case "string":
-		return funcs.StringFromNullByte(c.GetBytes(index))
+		return smconv.StringFromNullByte(c.GetBytes(index))
 		break
 	case "int32":
-		return funcs.Int32FromBytes(c.GetBytes(index))
+		return smconv.Int32FromBytes(c.GetBytes(index))
 		break
 	}
 	return nil

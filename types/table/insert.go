@@ -1,12 +1,11 @@
 package table
 
 import (
-	"ddb/types/funcs"
 	"ddb/types/key"
 	"reflect"
 	"errors"
 	"ddb/types/query"
-	"strconv"
+	"github.com/drdreyworld/smconv"
 )
 
 func (t *Table) Insert(ins *query.Insert) (err error) {
@@ -16,34 +15,13 @@ func (t *Table) Insert(ins *query.Insert) (err error) {
 
 		for j := 0; j < len(ins.Columns); j++ {
 			col := string(ins.Columns[j])
+			cfg := t.config.Columns.ByName(col)
 
-			switch t.config.Columns.ByName(col).Type {
-			case "int32":
-				s := string(ins.Values[i][j].Data)
-
-				i, err := strconv.Atoi(s)
-				if err != nil {
-					return err
-				}
-
-				row[col], err = funcs.ValueToBytes(i, t.config.Columns.ByName(col).Length)
-				if err != nil {
-					return err
-				}
-
-				break;
-
-			case "string":
-				row[col], err = funcs.ValueToBytes(ins.Values[i][j].Data, t.config.Columns.ByName(col).Length)
-				if err != nil {
-					return err
-				}
-
-				break;
-
-			default:
-				panic("unknown column type")
-			}
+			row[col] = smconv.StringValueToBytes(
+				string(ins.Values[i][j].Data),
+				cfg.Type,
+				cfg.Length,
+			)
 		}
 
 		rowid := t.storage.GetRowsCount()
@@ -71,10 +49,7 @@ func (t *Table) InsertOld(data interface{}, addToIndex bool) (err error) {
 			return errors.New("Can't get row column by name '" + col.Name + "' in row ")
 		} else {
 			if value.Type.Name() == col.Type {
-				row[col.Name], err = funcs.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
-				if err != nil {
-					return err
-				}
+				row[col.Name] = smconv.ValueToBytes(rvalue.FieldByName(col.Name).Interface(), col.Length)
 			} else {
 				return errors.New("Invalid field type for column '" + col.Name + "': '" + value.Type.Name() + "'")
 			}
