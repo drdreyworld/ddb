@@ -6,7 +6,7 @@
     "columns"   : [
         {"name":"FName","length":50,"type":"string"},
         {"name":"LName","length":50,"type":"string"},
-        {"name":"Id","length":5,"type":"int32"}
+        {"name":"Id",   "length":5,"type":"int32"}
     ],
 
     "max_id" : 0,

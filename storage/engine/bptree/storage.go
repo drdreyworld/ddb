@@ -1,7 +1,7 @@
 package bptree
 
 import (
-	"ddb/types/config"
+	"ddb/storage/config"
 	"github.com/drdreyworld/bptree"
 	"github.com/drdreyworld/smconv"
 	"strconv"
@@ -14,7 +14,7 @@ type Storage struct {
 	dataSize int
 }
 
-func (c *Storage) Init(tableName string, cfg config.ColumnsConfig) {
+func (c *Storage) Open(tableName string, cfg config.ColumnsConfig) {
 	c.config = cfg
 
 	filename := "/Users/andrey/Go/src/ddb/data/bpt." + tableName + ".idx"
@@ -34,18 +34,6 @@ func (c *Storage) Init(tableName string, cfg config.ColumnsConfig) {
 	if err := c.index.OpenFile(filename); err != nil {
 		panic(err)
 	}
-}
-
-func (c *Storage) Load() error {
-	return nil
-}
-
-func (c *Storage) Save() error {
-	return nil
-}
-
-func (c *Storage) Flush() error {
-	return nil
 }
 
 func (c *Storage) Close() error {
@@ -109,6 +97,29 @@ func (c *Storage) GetRowBytesByIndex(index int) map[string][]byte {
 		pos += c.config[i].Length
 	}
 	return res
+}
+
+func (c *Storage) SetRowBytesByIndex(index int, values map[string][]byte) {
+	key := smconv.Uint32ToBytes(uint32(index))
+	row := c.index.Find(key)
+
+	if row == nil {
+		row = bptree.CreateRow(
+			c.keySize,
+			c.dataSize,
+			key,
+			[]byte{},
+		)
+	}
+
+	pos := c.keySize + 4 + 4
+	for i := 0; i < len(c.config); i++ {
+		if value, ok := values[c.config[i].Name]; ok {
+			copy((*row)[pos:pos+c.config[i].Length], value)
+		}
+		pos += c.config[i].Length
+	}
+	c.index.Insert(row)
 }
 
 func (c *Storage) GetValueByColumnIndex(position int, columnIndex int) interface{} {

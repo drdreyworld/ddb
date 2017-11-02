@@ -1,6 +1,6 @@
-package storage
+package engine
 
-import "ddb/types/config"
+import "ddb/storage/config"
 
 type Storage interface {
 	GetColumnsConfig()config.ColumnsConfig
@@ -15,11 +15,8 @@ type Storage interface {
 
 	GetRowStringMapByIndex(index int) map[string]string
 	GetRowBytesByIndex(index int) map[string][]byte
+	SetRowBytesByIndex(index int, row map[string][]byte)
 
-	Init(tableName string, cfg config.ColumnsConfig)
-	Load() error
-	Save() error
-
-	Flush() error
+	Open(tableName string, cfg config.ColumnsConfig)
 	Close() error
 }

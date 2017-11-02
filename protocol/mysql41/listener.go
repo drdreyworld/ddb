@@ -1,4 +1,4 @@
-package server
+package mysql41
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 type HandleFunc func(conn net.Conn)
 
 type Listener struct {
+	Name string
 	Host string
 	Port string
 
@@ -26,7 +27,7 @@ func (self *Listener) Listen() (err error) {
 
 	defer self.listener.Close()
 
-	fmt.Println("listening on " + self.Host + ":" + self.Port)
+	fmt.Printf("listening %s on %s %s", self.Name, self.Host, self.Port)
 
 	for {
 		conn, err := self.listener.Accept()

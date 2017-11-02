@@ -1,17 +1,17 @@
 package dbresult
 
 import (
-	"ddb/types/storage"
+	"ddb/storage/engine"
 	"errors"
 )
 
 type DbResult struct {
-	storage   storage.Storage
+	storage   engine.Storage
 	current   int
 	positions []int
 }
 
-func (r *DbResult) Init(storage storage.Storage) {
+func (r *DbResult) Init(storage engine.Storage) {
 	r.storage = storage
 }
 

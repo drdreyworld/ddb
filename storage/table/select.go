@@ -1,16 +1,15 @@
 package table
 
 import (
+	"ddb/storage/config"
+	"ddb/storage/index"
 	"ddb/types"
-	"ddb/types/index"
+	"ddb/types/dbresult"
+	"ddb/types/query"
 	"errors"
 	"fmt"
-	"time"
-	"ddb/types/query"
-	"ddb/types/dbresult"
-	"ddb/types/key"
-	"ddb/types/config"
 	"github.com/drdreyworld/smconv"
+	"time"
 )
 
 func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition, err error) {
@@ -28,6 +27,39 @@ func (t *Table) CreateFindCond(where query.Where) (res []types.CompareCondition,
 		})
 	}
 	return res, nil
+}
+
+func (t *Table) GetColumnsForIndex(cond types.CompareConditions, order query.Order) config.ColumnsConfig {
+	cc := t.storage.GetColumnsConfig()
+	indexColumns := config.ColumnsConfig{}
+	indexColumnsMap := cc.GetMap()
+	indexColumnsAdded := map[string]bool{}
+
+	for i := range order {
+		column := order[i].Column
+		if _, ok := indexColumnsMap[column]; ok {
+			if _, ok := indexColumnsAdded[column]; !ok {
+				indexColumns = append(indexColumns, indexColumnsMap[column])
+				indexColumnsAdded[column] = true
+			}
+		} else {
+			panic("Column " + column + " not found")
+		}
+	}
+
+	for i := range cond {
+		column := cond[i].Field
+		if _, ok := indexColumnsMap[column]; ok {
+			if _, ok := indexColumnsAdded[column]; !ok {
+				indexColumns = append(indexColumns, indexColumnsMap[column])
+				indexColumnsAdded[column] = true
+			}
+		} else {
+			panic("Column " + column + " not found")
+		}
+	}
+
+	return indexColumns
 }
 
 func (t *Table) GetIndex(indexColumns config.ColumnsConfig) index.Index {
@@ -59,8 +91,8 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 		return nil, err
 	}
 
-	idx := CreateIndex(t.config.IndexType)
-	indexColumns := idx.GetColumnsForIndex(t.storage.GetColumnsConfig(), cond, sel.Order)
+	var idx index.Index
+	indexColumns := t.GetColumnsForIndex(cond, sel.Order)
 
 	if len(indexColumns) == 0 {
 		return t.SearchWithoutIndex(cond, sel.Limit)
@@ -70,13 +102,8 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 		now := time.Now()
 		fmt.Print("Build index: ")
 
-		idx = CreateIndex(t.config.IndexType)
-		idx.Init()
-		idx.SetTableName(t.name)
-		idx.SetColumns(indexColumns)
+		idx = t.CreateIndex(config.IndexConfig{Cols: indexColumns})
 		idx.BuildIndex(t.storage)
-		idx.GenerateName("tmpidx")
-		idx.SetTemporaryFlag(true)
 
 		t.indexes = append(t.indexes, idx)
 		fmt.Println(time.Now().Sub(now))
@@ -87,33 +114,35 @@ func (t *Table) Select(sel *query.Select) (res *dbresult.DbResult, err error) {
 
 func (t *Table) SearchByIndex(idx index.Index, sel *query.Select, cond types.CompareConditions) (res *dbresult.DbResult, err error) {
 
-	ordersColumns := sel.Order.GetOrderMap()
-	conds := cond.GroupByColumns()
-
-	whereCallback := func(column string, value key.BytesKey) bool {
-		result := true
-		for _, cnd := range conds[column] {
-			if result = result && cnd.Compare(value); !result {
-				return result
-			}
-
-		}
-		return result
-	}
+	conditions := cond.GroupByColumns()
 
 	positions := []int{}
 
 	st := time.Now()
-	fmt.Print("Search by index index: ", idx.GetName(), " ")
-	idx.Traverse(ordersColumns, whereCallback, func(pos []int) bool {
-		for i := range pos {
-			positions = append(positions, pos[i])
-			if len(positions) >= sel.Limit.RowCount {
-				return false
+	//fmt.Print("Search by index index: ", idx.GetName(), " ")
+	fmt.Print("Search by index index: ")
+	idx.ScanRows(
+		func(column string, value []byte) bool {
+			result := true
+			for _, cnd := range conditions[column] {
+				if result = result && cnd.Compare(value); !result {
+					return result
+				}
 			}
-		}
-		return true
-	})
+			return result
+		},
+		func(pos []int) bool {
+			for i := range pos {
+				positions = append(positions, pos[i])
+				if len(positions) >= sel.Limit.RowCount {
+					return false
+				}
+			}
+			return true
+		},
+		sel.Order.GetOrderMap(),
+	)
+
 	fmt.Println(time.Now().Sub(st))
 
 	res = &dbresult.DbResult{}
@@ -140,7 +169,7 @@ func (t *Table) SearchWithoutIndex(cond types.CompareConditions, limit query.Lim
 			column := &t.config.Columns[ci]
 
 			if _, ok := conds[column.Name]; !ok {
-				continue;
+				continue
 			}
 
 			b := t.storage.GetBytesByColumnIndex(i, ci)

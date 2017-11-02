@@ -2,7 +2,7 @@ package mysql41
 
 import (
 	"ddb/types/queryparser"
-	"ddb/types/queryprocessor"
+	"ddb/storage"
 	"ddb/types/rowset"
 	"net"
 	"log"
@@ -42,7 +42,7 @@ func (c *Connection) resetConnStatus() {
 	c.warningsCount = 0
 }
 
-func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocessor.QueryProcessor) {
+func (c *Connection) Handle(parser *queryparser.Parser, processor *storage.QueryProcessor) {
 	var err error
 	var rows *rowset.Rowset
 
@@ -87,7 +87,7 @@ func (c *Connection) Handle(parser *queryparser.Parser, processor *queryprocesso
 			continue
 		}
 
-		rows, c.affecterRows, err = processor.Execute(query)
+		rows, c.affecterRows, err = processor.Execute(query, p.readQuery())
 
 		if err != nil {
 			c.sequence = p.readSequence()

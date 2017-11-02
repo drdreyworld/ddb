@@ -1,6 +1,6 @@
 package query
 
-import "ddb/types/config"
+import "ddb/storage/config"
 
 type SelectExprs []SelectExpr
 
